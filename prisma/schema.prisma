@@ -1,0 +1,303 @@
+// Modelo de dados do sistema de acompanhamento de desempenho ArqueaTec.
+// Princípio de minimização (LGPD): só armazenamos dados necessários à gestão do trabalho.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  COORDINATOR
+  COLLABORATOR
+}
+
+enum TargetPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum Direction {
+  HIGHER_BETTER
+  LOWER_BETTER
+}
+
+/// SUM: soma os lançamentos do período (fluxo). LAST: usa o último valor lançado (estoque, ex.: valor em pipeline).
+enum Aggregation {
+  SUM
+  LAST
+}
+
+enum IndicatorUnit {
+  COUNT
+  CURRENCY
+  PERCENT
+  HOURS
+}
+
+enum TaskKind {
+  GOAL
+  TASK
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+}
+
+enum FeedbackKind {
+  COMMENT
+  RECOGNITION
+}
+
+enum PeriodType {
+  WEEK
+  MONTH
+}
+
+enum ReviewStatus {
+  DRAFT
+  FINALIZED
+}
+
+enum ProjectKind {
+  PROJECT
+  CLIENT
+}
+
+model Area {
+  id                       String      @id @default(cuid())
+  name                     String      @unique
+  description              String?
+  /// Peso (0-100) dos indicadores na nota consolidada; o restante vai para a regularidade de check-in.
+  indicatorsWeight         Int         @default(80)
+  checkinWeight            Int         @default(20)
+  /// Se verdadeiro, pessoas desta área podem criar indicadores pessoais (ex.: CEO).
+  allowPersonalIndicators  Boolean     @default(false)
+  active                   Boolean     @default(true)
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+  users                    User[]
+  indicators               Indicator[]
+}
+
+model User {
+  id               String    @id @default(cuid())
+  name             String
+  email            String    @unique
+  passwordHash     String?
+  role             Role      @default(COLLABORATOR)
+  jobTitle         String?
+  areaId           String?
+  area             Area?     @relation(fields: [areaId], references: [id])
+  /// Relação de liderança: a pessoa que coordena este usuário.
+  managerId        String?
+  manager          User?     @relation("Leadership", fields: [managerId], references: [id])
+  reports          User[]    @relation("Leadership")
+  active           Boolean   @default(true)
+  reminderEnabled  Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  sessions           Session[]
+  magicLinks         MagicLinkToken[]
+  checkIns           CheckIn[]
+  indicatorEntries   IndicatorEntry[]
+  personalIndicators Indicator[]      @relation("PersonalIndicators")
+  assignedTasks      Task[]           @relation("TaskAssignee")
+  createdTasks       Task[]           @relation("TaskCreator")
+  feedbackReceived   Feedback[]       @relation("FeedbackTarget")
+  feedbackGiven      Feedback[]       @relation("FeedbackAuthor")
+  reviews            MonthlyReview[]  @relation("ReviewSubject")
+  reviewsFinalized   MonthlyReview[]  @relation("ReviewFinalizer")
+  auditActions       AuditLog[]       @relation("AuditActor")
+  auditSubject       AuditLog[]       @relation("AuditSubject")
+
+  @@index([managerId])
+  @@index([areaId])
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+}
+
+model MagicLinkToken {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model Indicator {
+  id            String        @id @default(cuid())
+  name          String
+  description   String?
+  unit          IndicatorUnit @default(COUNT)
+  direction     Direction     @default(HIGHER_BETTER)
+  aggregation   Aggregation   @default(SUM)
+  targetValue   Float
+  targetPeriod  TargetPeriod  @default(WEEKLY)
+  weight        Float         @default(1)
+  sortOrder     Int           @default(0)
+  active        Boolean       @default(true)
+  /// Indicador de área (areaId) OU indicador pessoal (ownerId).
+  areaId        String?
+  area          Area?         @relation(fields: [areaId], references: [id])
+  ownerId       String?
+  owner         User?         @relation("PersonalIndicators", fields: [ownerId], references: [id])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  entries       IndicatorEntry[]
+
+  @@index([areaId])
+  @@index([ownerId])
+}
+
+model CheckIn {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id])
+  date             DateTime  @db.Date
+  yesterday        String
+  today            String
+  blockers         String?
+  needsHelp        Boolean   @default(false)
+  blockerResolvedAt DateTime?
+  blockerResolvedById String?
+  selfScore        Int
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  feedbacks        Feedback[]
+
+  @@unique([userId, date])
+  @@index([date])
+}
+
+model IndicatorEntry {
+  id           String    @id @default(cuid())
+  indicatorId  String
+  indicator    Indicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  date         DateTime  @db.Date
+  value        Float
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([indicatorId, userId, date])
+  @@index([userId, date])
+}
+
+model Project {
+  id         String      @id @default(cuid())
+  name       String      @unique
+  kind       ProjectKind @default(PROJECT)
+  active     Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  tasks      Task[]
+}
+
+model Task {
+  id             String      @id @default(cuid())
+  kind           TaskKind    @default(TASK)
+  title          String
+  description    String?
+  status         TaskStatus  @default(TODO)
+  blockedReason  String?
+  dueDate        DateTime?   @db.Date
+  completedAt    DateTime?
+  assigneeId     String
+  assignee       User        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdById    String
+  createdBy      User        @relation("TaskCreator", fields: [createdById], references: [id])
+  projectId      String?
+  project        Project?    @relation(fields: [projectId], references: [id])
+  parentId       String?
+  parent         Task?       @relation("GoalTasks", fields: [parentId], references: [id])
+  children       Task[]      @relation("GoalTasks")
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  feedbacks      Feedback[]
+
+  @@index([assigneeId, status])
+  @@index([dueDate])
+}
+
+model Feedback {
+  id            String        @id @default(cuid())
+  kind          FeedbackKind  @default(COMMENT)
+  body          String
+  authorId      String
+  author        User          @relation("FeedbackAuthor", fields: [authorId], references: [id])
+  targetUserId  String
+  targetUser    User          @relation("FeedbackTarget", fields: [targetUserId], references: [id])
+  checkInId     String?
+  checkIn       CheckIn?      @relation(fields: [checkInId], references: [id], onDelete: SetNull)
+  taskId        String?
+  task          Task?         @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  periodType    PeriodType?
+  periodStart   DateTime?     @db.Date
+  createdAt     DateTime      @default(now())
+
+  @@index([targetUserId, createdAt])
+}
+
+model MonthlyReview {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation("ReviewSubject", fields: [userId], references: [id])
+  /// Primeiro dia do mês avaliado.
+  month          DateTime      @db.Date
+  summary        String        @default("")
+  strengths      String        @default("")
+  improvements   String        @default("")
+  status         ReviewStatus  @default(DRAFT)
+  /// Nota e detalhamento congelados no momento da finalização.
+  finalScore     Float?
+  breakdown      Json?
+  finalizedAt    DateTime?
+  finalizedById  String?
+  finalizedBy    User?         @relation("ReviewFinalizer", fields: [finalizedById], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([userId, month])
+}
+
+/// Trilha de auditoria: quem, quando, valor anterior e novo.
+model AuditLog {
+  id             String   @id @default(cuid())
+  actorId        String?
+  actor          User?    @relation("AuditActor", fields: [actorId], references: [id])
+  /// Pessoa a quem o registro se refere (transparência: ela pode ver este log).
+  subjectUserId  String?
+  subjectUser    User?    @relation("AuditSubject", fields: [subjectUserId], references: [id])
+  entityType     String
+  entityId       String
+  action         String
+  before         Json?
+  after          Json?
+  reason         String?
+  createdAt      DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([subjectUserId, createdAt])
+}

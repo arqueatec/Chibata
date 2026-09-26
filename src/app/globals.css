@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #eef6f6;
+  --color-brand-100: #d4eaea;
+  --color-brand-500: #1f8a8a;
+  --color-brand-600: #17706f;
+  --color-brand-700: #125958;
+  --color-brand-900: #0b3433;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
+
+@utility card {
+  @apply rounded-xl border border-slate-200 bg-white p-4 shadow-sm;
+}
+@utility btn {
+  @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60;
+}
+@utility btn-primary {
+  @apply btn bg-brand-600 text-white hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600;
+}
+@utility btn-secondary {
+  @apply btn border border-slate-300 bg-white text-slate-800 hover:bg-slate-50;
+}
+@utility btn-danger {
+  @apply btn border border-red-300 bg-white text-red-700 hover:bg-red-50;
+}
+@utility btn-sm {
+  @apply min-h-9 px-3 py-1 text-xs;
+}
+@utility input {
+  @apply block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none sm:text-sm;
+}
+@utility label {
+  @apply mb-1 block text-sm font-medium text-slate-700;
+}
+@utility hint {
+  @apply mt-1 text-xs text-slate-500;
+}
+.tbl {
+  @apply w-full text-left text-sm;
+}
+.tbl th {
+  @apply border-b border-slate-200 px-2 py-2 text-xs font-semibold tracking-wide text-slate-500 uppercase;
+}
+.tbl td {
+  @apply border-b border-slate-100 px-2 py-2 align-top;
+}
+@utility link {
+  @apply font-medium text-brand-700 underline-offset-2 hover:underline;
+}
