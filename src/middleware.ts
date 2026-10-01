@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // Verificação otimista (apenas presença do cookie). A validação real da sessão
 // e a autorização acontecem no servidor, em cada página e server action.
-const PUBLIC = ["/login", "/auth/magic", "/api/cron", "/manifest.webmanifest"];
+const PUBLIC = ["/login", "/auth/magic", "/api/cron", "/manifest.webmanifest", "/setup"];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
