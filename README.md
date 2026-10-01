@@ -72,7 +72,7 @@ npm install
 
 # 2. Variáveis de ambiente
 cp .env.example .env
-# edite DATABASE_URL e DIRECT_URL (localmente, as duas podem ser iguais)
+# edite DATABASE_URL e DATABASE_URL_UNPOOLED (localmente, as duas podem ser iguais)
 
 # Exemplo com Docker:
 # docker run -d --name pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=chibata -p 5432:5432 postgres:16
@@ -140,12 +140,10 @@ Em "Entrar", informe o e-mail e clique em "Enviar link de acesso". Com `RESEND_A
 
 ## Publicando na Vercel
 
-1. **Banco:** crie um banco PostgreSQL no [Neon](https://neon.tech) (ou pela integração *Storage → Neon/Postgres* da Vercel). Copie:
-   - a URL **com pooling** (host com `-pooler`) para `DATABASE_URL`;
-   - a URL **direta** para `DIRECT_URL` (usada pelas migrações).
+1. **Banco:** na aba *Storage* do projeto na Vercel, crie um banco Neon e conecte-o ao projeto. A integração já cria `DATABASE_URL` (com pooling) e `DATABASE_URL_UNPOOLED` (conexão direta, usada pelas migrações). Se usar outro provedor, crie essas duas variáveis manualmente.
 2. **Projeto:** importe o repositório na Vercel. O framework é detectado como Next.js.
 3. **Variáveis de ambiente** (*Settings → Environment Variables*):
-   - `DATABASE_URL`, `DIRECT_URL`
+   - `DATABASE_URL`, `DATABASE_URL_UNPOOLED` (já criadas pela integração Neon)
    - `APP_URL`: a URL pública, ex.: `https://desempenho.arqueatec.com.br`
    - `CRON_SECRET`: valor aleatório longo (`openssl rand -hex 32`)
    - `APP_TIMEZONE=America/Sao_Paulo`
@@ -153,7 +151,7 @@ Em "Entrar", informe o e-mail e clique em "Enviar link de acesso". Com `RESEND_A
 4. **Deploy:** a Vercel executa o script `vercel-build` (`prisma generate && prisma migrate deploy && next build`), então as migrações são aplicadas a cada deploy.
 5. **Primeiros dados:** para a demonstração, rode uma vez a partir da sua máquina, apontando para o banco de produção:
    ```bash
-   DATABASE_URL="<url-direta>" DIRECT_URL="<url-direta>" npm run db:seed
+   DATABASE_URL="<url-direta>" DATABASE_URL_UNPOOLED="<url-direta>" npm run db:seed
    ```
    Para uso real, crie só o administrador e cadastre o restante pela interface. Por exemplo, rode o seed e depois ajuste ou desative as pessoas em `/admin/pessoas` e troque as senhas.
 6. **Lembretes:** `vercel.json` agenda `/api/cron/reminders` em dias úteis às 12:00 UTC (9:00 em Brasília). A Vercel envia `Authorization: Bearer $CRON_SECRET` automaticamente. O e-mail só vai para quem ativou os lembretes em "Meus dados" e ainda não fez o check-in do dia.
