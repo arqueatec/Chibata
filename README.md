@@ -19,7 +19,8 @@ Aplicativo de acompanhamento diário de desempenho da equipe ArqueaTec: check-in
 | **Página individual** (`/pessoas/[id]`) | Evolução de 12 semanas (nota, % da meta, autoavaliação), detalhamento da nota, tabela dos indicadores dos últimos 10 dias úteis, metas e tarefas, histórico de check-ins, feedbacks, revisões mensais e auditoria sobre a pessoa. |
 | **Feedbacks** | Comentário ou reconhecimento ligado a um dia (check-in), a uma tarefa ou a um período (semana/mês). |
 | **Revisões mensais** (`/pessoas/[id]/revisao/AAAA-MM`) | Rascunho → finalizada. Na finalização, a nota e o detalhamento do mês ficam **congelados**. Só o administrador reabre, e a justificativa (obrigatória) fica registrada na auditoria. |
-| **Administração** (`/admin`) | Pessoas (perfil de acesso, área, liderança, ativação, senha), áreas e pesos, indicadores, projetos e clientes, e a trilha de auditoria com filtros. |
+| **Administração** (`/admin`) | Pessoas (perfil de acesso, área, liderança, ativação, senha), áreas e pesos, indicadores, projetos e clientes, e a trilha de auditoria com filtros (tipo, pessoa, datas) e exportação em Excel. |
+| **Exportar** (`/admin/exportar`) | Planilha Excel da equipe por período (e opcionalmente por área ou pessoa), com abas: Leia-me, Pessoas, Notas semanais, Notas mensais, Detalhe das notas, Check-ins, Indicadores (diário), Tarefas, Feedbacks, Revisões e Auditoria (uma linha por campo alterado). Pronta para abrir no Excel ou enviar ao Claude para gerar relatórios; a aba Leia-me traz uma sugestão de pedido. |
 | **Meus dados** (`/meus-dados`) | Tudo o que está registrado sobre a pessoa, exportação em JSON, lembretes por e-mail, indicadores pessoais, troca de senha e encerramento das outras sessões. |
 
 ### Perfis de acesso (sempre verificados no servidor)
