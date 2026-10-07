@@ -1,5 +1,6 @@
 import { ActionForm, SubmitButton } from "./ActionForm";
 import { deleteIndicator, saveIndicator } from "@/app/actions/admin";
+import { AUTO_RULE_TYPES, parseAutoRule } from "@/lib/domain/autoIndicators";
 
 export interface IndicatorValues {
   id?: string;
@@ -15,6 +16,7 @@ export interface IndicatorValues {
   active: boolean;
   areaId: string | null;
   ownerId: string | null;
+  autoRule?: unknown;
 }
 
 export function IndicatorForm({
@@ -22,12 +24,15 @@ export function IndicatorForm({
   areas,
   people,
   fixedOwner,
+  projects = [],
 }: {
   values: IndicatorValues;
   areas?: { id: string; name: string }[];
   people?: { id: string; name: string }[];
   fixedOwner?: string;
+  projects?: { id: string; name: string; fromAsana?: boolean }[];
 }) {
+  const rule = parseAutoRule(values.autoRule);
   const scope = fixedOwner ? `owner:${fixedOwner}` : values.ownerId ? `owner:${values.ownerId}` : values.areaId ? `area:${values.areaId}` : "";
   return (
     <div className="space-y-2">
@@ -94,6 +99,47 @@ export function IndicatorForm({
             <input type="checkbox" name="active" defaultChecked={values.active} className="h-5 w-5" /> Ativo
           </label>
         </div>
+        <details className="rounded-lg border border-slate-200 p-3" open={!!rule}>
+          <summary className="cursor-pointer text-sm font-medium">Preenchimento: {rule ? <span className="text-brand-700">automático</span> : "manual no check-in"}</summary>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="label">Regra</label>
+              <select name="autoType" defaultValue={rule?.type ?? ""} className="input">
+                <option value="">Manual (a pessoa informa no check-in)</option>
+                {Object.entries(AUTO_RULE_TYPES).map(([k, v]) => (
+                  <option key={k} value={k}>Automático: {v}</option>
+                ))}
+              </select>
+              <p className="hint">Contado nas tarefas do responsável (sincronizadas do Asana ou criadas no app). Indicadores automáticos não são editados no check-in.</p>
+            </div>
+            <div>
+              <label className="label">Só tarefas cujo título contém</label>
+              <input name="autoName" defaultValue={rule?.nameContains ?? ""} placeholder="ex.: Ata" className="input" />
+            </div>
+            <div>
+              <label className="label">Campo do Asana</label>
+              <input name="autoField" defaultValue={rule?.field ?? ""} placeholder="ex.: Valor estimado, Status do lead" className="input" />
+            </div>
+            <div>
+              <label className="label">Valor do campo (para “mudou para”)</label>
+              <input name="autoValue" defaultValue={rule?.value ?? ""} placeholder="ex.: Reunião" className="input" />
+            </div>
+            {projects.length > 0 && (
+              <fieldset className="sm:col-span-2">
+                <legend className="label">Só nestes projetos (nenhum marcado = todos)</legend>
+                <div className="grid gap-1 sm:grid-cols-2">
+                  {projects.map((p) => (
+                    <label key={p.id} className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" name="autoProjects" value={p.id} defaultChecked={rule?.projectIds.includes(p.id)} className="h-4 w-4" />
+                      {p.name}
+                      {p.fromAsana && <span className="text-xs text-slate-400">(Asana)</span>}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+          </div>
+        </details>
         <SubmitButton className="btn-primary btn-sm">{values.id ? "Salvar indicador" : "Adicionar indicador"}</SubmitButton>
       </ActionForm>
       {values.id && (

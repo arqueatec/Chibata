@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 
-export type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "FINALIZE" | "REOPEN" | "RESOLVE" | "EXPORT" | "LOGIN";
+export type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "FINALIZE" | "REOPEN" | "RESOLVE" | "EXPORT" | "LOGIN" | "SYNC";
 
 export interface AuditInput {
   actorId: string | null;

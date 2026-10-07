@@ -10,6 +10,11 @@ import { addDays, dateToKey, formatDay, isBusinessDay, isDayKey, keyToDate, toda
 import { EDIT_WINDOW_BUSINESS_DAYS } from "@/lib/domain/editWindow";
 import { PERIOD_LABEL, UNIT_LABEL } from "@/lib/format";
 import { indicatorsForUser } from "@/lib/services/indicators";
+import { after } from "next/server";
+import { refreshFromAsana } from "@/app/actions/asana";
+import { asanaEnabled, syncIfStale } from "@/lib/asana/sync";
+import { parseAutoRule } from "@/lib/domain/autoIndicators";
+import { checkInSuggestions } from "@/lib/services/checkinSuggestions";
 
 export const metadata = { title: "Check-in" };
 
@@ -48,7 +53,13 @@ export default async function CheckInPage({ searchParams }: { searchParams: Prom
   }
   const entryOf = (id: string) => entries.find((e) => e.indicatorId === id)?.value;
   const qs = (d: string) => `/checkin?date=${d}${userId !== access.user.id ? `&user=${userId}` : ""}`;
-  const defaultYesterday = existing?.yesterday ?? previous?.today ?? "";
+  // Pré-preenchimento a partir das tarefas (Asana/app), só para o check-in de hoje ainda não feito
+  const integration = await asanaEnabled();
+  if (integration) after(() => syncIfStale(10).catch(() => null));
+  const suggestions = !existing && date === today ? await checkInSuggestions(userId, today, previous?.createdAt ?? null) : null;
+  const defaultYesterday = existing?.yesterday ?? (suggestions?.done.length ? suggestions.done.join("\n") : (previous?.today ?? ""));
+  const defaultToday = existing?.today ?? (suggestions?.plan.length ? suggestions.plan.join("\n") : "");
+  const autoIds = new Set(indicators.filter((i) => parseAutoRule(i.autoRule)).map((i) => i.id));
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -70,6 +81,15 @@ export default async function CheckInPage({ searchParams }: { searchParams: Prom
         </form>
       </div>
 
+      {integration && userId === access.user.id && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+          <span>Tarefas e indicadores automáticos vêm do Asana.</span>
+          <ActionForm action={refreshFromAsana} className="flex items-center gap-2">
+            <SubmitButton className="btn-secondary btn-sm" pendingText="Atualizando…">↻ Atualizar com o Asana</SubmitButton>
+          </ActionForm>
+        </div>
+      )}
+
       {locked && (
         <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           🔒 {decision.reason}
@@ -88,15 +108,25 @@ export default async function CheckInPage({ searchParams }: { searchParams: Prom
               <div>
                 <label className="label" htmlFor="yesterday">O que foi feito {date === today ? "ontem" : "no dia anterior"}?</label>
                 <textarea id="yesterday" name="yesterday" rows={3} required maxLength={2000} defaultValue={defaultYesterday} className="input" placeholder="Principais entregas, reuniões, avanços…" />
-                {!existing && previous?.today && <p className="hint">Pré-preenchido com o plano do seu último check-in — ajuste se necessário.</p>}
+                {!existing && suggestions?.done.length ? (
+                  <p className="hint">Pré-preenchido com as tarefas concluídas desde o seu último check-in — ajuste se necessário.</p>
+                ) : (
+                  !existing && previous?.today && <p className="hint">Pré-preenchido com o plano do seu último check-in — ajuste se necessário.</p>
+                )}
               </div>
               <div>
                 <label className="label" htmlFor="today">O que será feito {date === today ? "hoje" : "neste dia"}?</label>
-                <textarea id="today" name="today" rows={3} required maxLength={2000} defaultValue={existing?.today ?? ""} className="input" placeholder="Prioridades do dia" />
+                <textarea id="today" name="today" rows={3} required maxLength={2000} defaultValue={defaultToday} className="input" placeholder="Prioridades do dia" />
+                {!existing && suggestions?.plan.length ? <p className="hint">Sugestão a partir das suas tarefas em andamento e com prazo até amanhã.</p> : null}
               </div>
               <div>
                 <label className="label" htmlFor="blockers">Bloqueios ou pedidos de ajuda <span className="font-normal text-slate-400">(opcional)</span></label>
                 <textarea id="blockers" name="blockers" rows={2} maxLength={2000} defaultValue={existing?.blockers ?? ""} className="input" placeholder="O que está impedindo seu avanço?" />
+                {suggestions && suggestions.blocked.length > 0 && (
+                  <p className="hint text-amber-800">
+                    Tarefas bloqueadas: {suggestions.blocked.map((b) => `${b.title}${b.reason ? ` (${b.reason})` : ""}`).join("; ")}
+                  </p>
+                )}
                 <label className="mt-2 flex items-center gap-2 text-sm">
                   <input type="checkbox" name="needsHelp" defaultChecked={existing?.needsHelp} className="h-5 w-5 rounded border-slate-300" />
                   Preciso de ajuda do(a) gestor(a) com isso
@@ -124,7 +154,20 @@ export default async function CheckInPage({ searchParams }: { searchParams: Prom
             <Card title="Indicadores do dia">
               <p className="mb-3 text-xs text-slate-500">Informe o que foi realizado neste dia. Deixe em branco o que não se aplica.</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {indicators.map((ind) => (
+                {indicators.map((ind) =>
+                  autoIds.has(ind.id) ? (
+                    <div key={ind.id}>
+                      <span className="label">
+                        {ind.name}
+                        {ind.unit !== "COUNT" && <span className="font-normal text-slate-400"> ({UNIT_LABEL[ind.unit]})</span>}
+                      </span>
+                      <div className="input flex items-center justify-between bg-slate-50 text-slate-700">
+                        <span>{(entryOf(ind.id) ?? 0).toLocaleString("pt-BR")}</span>
+                        <Badge tone="blue">automático</Badge>
+                      </div>
+                      <p className="hint">Calculado pelas tarefas{integration ? " do Asana" : ""} · meta {PERIOD_LABEL[ind.targetPeriod]}: {ind.targetValue.toLocaleString("pt-BR")}</p>
+                    </div>
+                  ) : (
                   <div key={ind.id}>
                     <label className="label" htmlFor={`ind_${ind.id}`}>
                       {ind.name}
@@ -146,7 +189,8 @@ export default async function CheckInPage({ searchParams }: { searchParams: Prom
                       {ind.ownerId && " · pessoal"}
                     </p>
                   </div>
-                ))}
+                  ),
+                )}
               </div>
             </Card>
           )}

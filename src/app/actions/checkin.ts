@@ -10,6 +10,7 @@ import { canDeleteCheckIn, canEditCheckIn, canResolveBlocker } from "@/lib/domai
 import { dateToKey, keyToDate, todayKey } from "@/lib/domain/dates";
 import { checkbox, dayKey, idField, optionalText, requiredText } from "@/lib/validation";
 import { indicatorsForUser } from "@/lib/services/indicators";
+import { parseAutoRule } from "@/lib/domain/autoIndicators";
 
 const schema = z.object({
   userId: idField,
@@ -44,7 +45,8 @@ export const saveCheckIn = safeAction(async (_prev: ActionResult, fd: FormData) 
 
   const indicators = await indicatorsForUser(data.userId);
   const values = new Map<string, number | null>();
-  for (const ind of indicators) {
+  // Indicadores automáticos (Asana/tarefas) não são lançados à mão
+  for (const ind of indicators.filter((i) => !parseAutoRule(i.autoRule))) {
     const key = `ind_${ind.id}`;
     if (key in raw) values.set(ind.id, indicatorValue.parse(String(raw[key] ?? "")));
   }

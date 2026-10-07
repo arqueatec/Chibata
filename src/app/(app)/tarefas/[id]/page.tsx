@@ -42,7 +42,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
         title={`${task.kind === "GOAL" ? "Meta" : "Tarefa"}: ${task.title}`}
         subtitle={
           <>
-            {task.assignee.name} · criada por {task.createdBy.name} em {formatDateTime(task.createdAt)}
+            {task.assignee.name} · {task.asanaGid ? "importada do Asana, criada lá" : `criada por ${task.createdBy.name}`} em {formatDateTime(task.createdAt)}
             {task.parent && (
               <>
                 {" "}· parte da meta <Link className="link" href={`/tarefas/${task.parent.id}`}>{task.parent.title}</Link>
@@ -50,7 +50,16 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
             )}
           </>
         }
-        actions={<StatusBadge status={task.status} overdue={overdue} />}
+        actions={
+          <>
+            <StatusBadge status={task.status} overdue={overdue} />
+            {task.asanaUrl && (
+              <a href={task.asanaUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary btn-sm">
+                Abrir no Asana ↗
+              </a>
+            )}
+          </>
+        }
       />
 
       {editable && (
@@ -73,7 +82,26 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
         </Card>
       )}
 
-      {editable && options ? (
+      {task.asanaGid && (
+        <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-3 text-sm text-slate-700">
+          Tarefa sincronizada do Asana{task.asanaSyncedAt ? ` (atualizada ${formatDateTime(task.asanaSyncedAt)})` : ""}. Título, prazo e responsável são editados no Asana; concluir ou
+          reabrir aqui também conclui ou reabre lá.
+          {task.asanaFields && Object.keys(task.asanaFields as object).length > 0 && (
+            <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
+              {Object.entries(task.asanaFields as Record<string, string | number | null>)
+                .filter(([, v]) => v !== null && v !== "")
+                .map(([k, v]) => (
+                  <div key={k}>
+                    <dt className="inline text-slate-500">{k}: </dt>
+                    <dd className="inline">{String(v)}</dd>
+                  </div>
+                ))}
+            </dl>
+          )}
+        </div>
+      )}
+
+      {editable && options && !task.asanaGid ? (
         <Card title="Editar">
           <TaskForm
             action={updateTask}
@@ -106,7 +134,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
         <FeedbackList items={task.feedbacks} />
       </Card>
 
-      {canDeleteTask(access.ctx, task) && (
+      {canDeleteTask(access.ctx, task) && !task.asanaGid && (
         <ActionForm action={deleteTask} confirm="Excluir esta tarefa? A ação fica registrada na auditoria.">
           <input type="hidden" name="id" value={task.id} />
           <SubmitButton className="btn-danger btn-sm" pendingText="Excluindo…">Excluir</SubmitButton>

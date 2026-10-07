@@ -3,17 +3,21 @@ import { IndicatorForm } from "@/components/IndicatorForm";
 import { Badge, Card } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { PERIOD_LABEL } from "@/lib/format";
+import { describeAutoRule, parseAutoRule } from "@/lib/domain/autoIndicators";
 
 export const metadata = { title: "Administração · Indicadores" };
 
 export default async function AdminIndicators() {
   // Autorização verificada também na página (layouts e páginas renderizam em paralelo)
   await requireAdminPage();
-  const [areas, people, indicators] = await Promise.all([
+  const [areas, people, indicators, projectRows] = await Promise.all([
     prisma.area.findMany({ orderBy: { name: "asc" } }),
     prisma.user.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.indicator.findMany({ include: { owner: { select: { name: true } } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+    prisma.project.findMany({ where: { active: true }, select: { id: true, name: true, asanaGid: true }, orderBy: { name: "asc" } }),
   ]);
+  const projects = projectRows.map((p) => ({ id: p.id, name: p.name, fromAsana: !!p.asanaGid }));
+  const projectNames = new Map(projectRows.map((p) => [p.id, p.name]));
   const groups = [
     ...areas.map((a) => ({ key: a.id, title: a.name, items: indicators.filter((i) => i.areaId === a.id) })),
     ...people
@@ -24,7 +28,7 @@ export default async function AdminIndicators() {
   return (
     <div className="space-y-4">
       <Card title="Adicionar indicador">
-        <IndicatorForm values={empty} areas={areas} people={people} />
+        <IndicatorForm values={empty} areas={areas} people={people} projects={projects} />
       </Card>
       {groups.map((g) => {
         const totalWeight = g.items.filter((i) => i.active).reduce((s, i) => s + i.weight, 0);
@@ -42,8 +46,10 @@ export default async function AdminIndicators() {
                       </span>
                       <Badge tone="brand">peso {i.weight} {totalWeight > 0 && i.active ? `(${Math.round((i.weight / totalWeight) * 100)}%)` : ""}</Badge>
                       {!i.active && <Badge tone="red">inativo</Badge>}
+                      {parseAutoRule(i.autoRule) && <Badge tone="blue" >automático</Badge>}
                     </summary>
-                    <div className="mt-3"><IndicatorForm values={i} areas={areas} people={people} /></div>
+                    {parseAutoRule(i.autoRule) && <p className="mt-1 text-xs text-slate-500">⚙ {describeAutoRule(parseAutoRule(i.autoRule)!, projectNames)}</p>}
+                    <div className="mt-3"><IndicatorForm values={i} areas={areas} people={people} projects={projects} /></div>
                   </details>
                 </li>
               ))}
