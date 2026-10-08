@@ -110,7 +110,10 @@ export function IndicatorForm({
                   <option key={k} value={k}>Automático: {v}</option>
                 ))}
               </select>
-              <p className="hint">Contado nas tarefas do responsável (sincronizadas do Asana ou criadas no app). Indicadores automáticos não são editados no check-in.</p>
+              <p className="hint">
+                Regras de tarefas contam as tarefas do responsável (Asana ou app). Regras do CRM contam contas, contatos, etapas e vendas do CRM NoFire. Indicadores
+                automáticos não são editados no check-in.
+              </p>
             </div>
             <div>
               <label className="label">Só tarefas cujo título contém</label>
@@ -121,8 +124,31 @@ export function IndicatorForm({
               <input name="autoField" defaultValue={rule?.field ?? ""} placeholder="ex.: Valor estimado, Status do lead" className="input" />
             </div>
             <div>
-              <label className="label">Valor do campo (para “mudou para”)</label>
-              <input name="autoValue" defaultValue={rule?.value ?? ""} placeholder="ex.: Reunião" className="input" />
+              <label className="label">Valor do campo (Asana) ou etapa do funil (CRM)</label>
+              <input name="autoValue" defaultValue={rule?.value ?? ""} placeholder="ex.: Reunião · ou etapa 5" className="input" />
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3 sm:col-span-2">
+              <p className="mb-2 text-xs font-semibold text-slate-600">Só para regras do CRM</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="label">Segmento da conta</label>
+                  <input name="autoSegment" defaultValue={rule?.segment ?? ""} placeholder="ex.: Bombeiros" className="input" />
+                </div>
+                <div>
+                  <label className="label">Filtro do segmento</label>
+                  <select name="autoSegmentMode" defaultValue={rule?.segmentMode ?? "include"} className="input">
+                    <option value="include">Só este segmento</option>
+                    <option value="exclude">Todos, exceto este</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Contar</label>
+                  <select name="autoScope" defaultValue={rule?.scope ?? "all"} className="input">
+                    <option value="all">Toda a equipe comercial</option>
+                    <option value="person">Só o que a pessoa fez</option>
+                  </select>
+                </div>
+              </div>
             </div>
             {projects.length > 0 && (
               <fieldset className="sm:col-span-2">

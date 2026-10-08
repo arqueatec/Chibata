@@ -1,7 +1,7 @@
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { computeAutoValue, parseAutoRule, type AutoFieldChange, type AutoTask } from "@/lib/domain/autoIndicators";
+import { computeAutoValue, isCrmRule, parseAutoRule, type AutoCrmEvent, type AutoFieldChange, type AutoTask } from "@/lib/domain/autoIndicators";
 import { addDays, eachDay, keyToDate, maxKey, todayKey } from "@/lib/domain/dates";
 
 /** Dia (fuso do app) de um instante. */
@@ -26,10 +26,11 @@ export async function recomputeAutoIndicators(opts: { userIds?: string[]; days?:
 
   const users = await prisma.user.findMany({
     where: { active: true, ...(opts.userIds ? { id: { in: opts.userIds } } : {}) },
-    select: { id: true, areaId: true, createdAt: true },
+    select: { id: true, areaId: true, createdAt: true, email: true, crmEmails: true },
   });
   const userIds = users.map((u) => u.id);
-  const [tasks, changes] = await Promise.all([
+  const needsCrm = indicators.some((i) => isCrmRule(i.rule!.type));
+  const [tasks, changes, crmRows] = await Promise.all([
     prisma.task.findMany({
       where: { assigneeId: { in: userIds } },
       select: { assigneeId: true, projectId: true, title: true, createdAt: true, dueDate: true, completedAt: true, status: true, asanaFields: true },
@@ -38,7 +39,17 @@ export async function recomputeAutoIndicators(opts: { userIds?: string[]; days?:
       where: { changedAt: { gte: keyToDate(addDays(from, -1)) }, task: { assigneeId: { in: userIds } } },
       include: { task: { select: { assigneeId: true, projectId: true, title: true } } },
     }),
+    needsCrm ? prisma.crmEvent.findMany({ where: { day: { gte: keyToDate(from) } } }) : Promise.resolve([]),
   ]);
+  const crmEvents: AutoCrmEvent[] = crmRows.map((e) => ({
+    type: e.type as AutoCrmEvent["type"],
+    day: e.day.toISOString().slice(0, 10),
+    segment: e.segment,
+    userEmail: e.userEmail,
+    toStatus: e.toStatus,
+    volumeL: e.volumeL,
+    amount: e.amount,
+  }));
   const autoTasks: AutoTask[] = tasks.map((t) => ({
     assigneeId: t.assigneeId,
     projectId: t.projectId,
@@ -67,7 +78,16 @@ export async function recomputeAutoIndicators(opts: { userIds?: string[]; days?:
         where: { indicatorId: ind.id, userId: u.id, date: { gte: keyToDate(start), lte: keyToDate(today) } },
       });
       for (const day of eachDay(start, today)) {
-        const value = computeAutoValue({ rule: ind.rule!, userId: u.id, day, today, tasks: autoTasks, changes: autoChanges });
+        const value = computeAutoValue({
+          rule: ind.rule!,
+          userId: u.id,
+          day,
+          today,
+          tasks: autoTasks,
+          changes: autoChanges,
+          crmEvents,
+          crmEmails: [u.email, ...u.crmEmails],
+        });
         if (value === null) continue; // não calculável para este dia: mantém o que existe
         const prev = existing.find((e) => e.date.toISOString().slice(0, 10) === day);
         if (value === 0 && ind.rule!.type !== "FIELD_SUM") {

@@ -11,6 +11,7 @@ const ITEMS = [
   { href: "/admin/auditoria", label: "Auditoria" },
   { href: "/admin/exportar", label: "Exportar" },
   { href: "/admin/asana", label: "Asana" },
+  { href: "/admin/crm", label: "CRM" },
   { href: "/admin/carga", label: "Carga de metas" },
 ];
 

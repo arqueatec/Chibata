@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { asanaEnabled, syncAsana } from "@/lib/asana/sync";
+import { crmConfigured } from "@/lib/crm/client";
+import { syncCrm } from "@/lib/crm/sync";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -13,10 +15,11 @@ function authorized(req: NextRequest) {
   return header.length === expected.length && timingSafeEqual(Buffer.from(header), Buffer.from(expected));
 }
 
-/** Sincronização diária com o Asana (Vercel Cron). */
+/** Sincronização diária das integrações (Vercel Cron): Asana e CRM NoFire. */
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
-  if (!(await asanaEnabled())) return NextResponse.json({ skipped: "integração com o Asana não configurada" });
-  const r = await syncAsana({ actorId: null, trigger: "cron" });
-  return NextResponse.json(r, { status: r.ok ? 200 : 500 });
+  const crm = crmConfigured() ? await syncCrm({ actorId: null, trigger: "cron" }) : { skipped: "CRM não configurado" };
+  const asana = (await asanaEnabled()) ? await syncAsana({ actorId: null, trigger: "cron" }) : { skipped: "Asana não configurado" };
+  const failed = ("ok" in crm && !crm.ok) || ("ok" in asana && !asana.ok);
+  return NextResponse.json({ crm, asana }, { status: failed ? 500 : 200 });
 }

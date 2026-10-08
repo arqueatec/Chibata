@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeAutoValue, parseAutoRule, toNumber, type AutoFieldChange, type AutoRule, type AutoTask } from "@/lib/domain/autoIndicators";
+import { computeAutoValue, parseAutoRule, toNumber, type AutoCrmEvent, type AutoFieldChange, type AutoRule, type AutoTask } from "@/lib/domain/autoIndicators";
 
 const T = (over: Partial<AutoTask>): AutoTask => ({
   assigneeId: "natan",
@@ -11,7 +11,7 @@ const T = (over: Partial<AutoTask>): AutoTask => ({
   fields: {},
   ...over,
 });
-const rule = (r: Partial<AutoRule> & Pick<AutoRule, "type">): AutoRule => ({ projectIds: [], ...r });
+const rule = (r: Partial<AutoRule> & Pick<AutoRule, "type">): AutoRule => ({ projectIds: [], segmentMode: "include", scope: "all", ...r });
 const run = (r: AutoRule, tasks: AutoTask[], day = "2026-10-06", changes: AutoFieldChange[] = []) =>
   computeAutoValue({ rule: r, userId: "natan", day, today: "2026-10-07", tasks, changes });
 
@@ -69,6 +69,44 @@ describe("indicadores automáticos a partir das tarefas", () => {
   it("regras inválidas são ignoradas", () => {
     expect(parseAutoRule(null)).toBeNull();
     expect(parseAutoRule({ type: "INEXISTENTE" })).toBeNull();
-    expect(parseAutoRule({ type: "TASKS_COMPLETED" })).toEqual({ type: "TASKS_COMPLETED", projectIds: [] });
+    expect(parseAutoRule({ type: "TASKS_COMPLETED" })).toEqual({ type: "TASKS_COMPLETED", projectIds: [], segmentMode: "include", scope: "all" });
+  });
+});
+
+describe("indicadores automáticos a partir do CRM", () => {
+  const E = (over: Partial<AutoCrmEvent>): AutoCrmEvent => ({ type: "CONTACT", day: "2026-10-06", segment: "Agricultor médio ou grande porte", userEmail: "fernando@nofire.com.br", toStatus: null, volumeL: null, amount: null, ...over });
+  const crm = (r: AutoRule, events: AutoCrmEvent[], emails: string[] = ["fernando@nofire.com.br"]) =>
+    computeAutoValue({ rule: r, userId: "fernando", day: "2026-10-06", today: "2026-10-07", tasks: [], changes: [], crmEvents: events, crmEmails: emails });
+  const bombeiros = "Corpo de Bombeiros / Defesa Civil";
+
+  it("prospects privados x institucionais pelo segmento", () => {
+    const events = [E({ type: "ACCOUNT_CREATED" }), E({ type: "ACCOUNT_CREATED", segment: bombeiros }), E({ type: "ACCOUNT_CREATED", day: "2026-10-05" })];
+    expect(crm(rule({ type: "CRM_ACCOUNTS_CREATED" }), events)).toBe(2);
+    expect(crm(rule({ type: "CRM_ACCOUNTS_CREATED", segment: "bombeiros" }), events)).toBe(1);
+    expect(crm(rule({ type: "CRM_ACCOUNTS_CREATED", segment: "bombeiros", segmentMode: "exclude" }), events)).toBe(1);
+  });
+
+  it("contatos: equipe toda ou só os da pessoa", () => {
+    const events = [E({}), E({ userEmail: "gustavo@nofire.com.br" }), E({ userEmail: null })];
+    expect(crm(rule({ type: "CRM_CONTACTS" }), events)).toBe(3);
+    expect(crm(rule({ type: "CRM_CONTACTS", scope: "person" }), events)).toBe(1);
+  });
+
+  it("etapa do funil por número ou por texto", () => {
+    const events = [
+      E({ type: "STATUS", toStatus: "5. Teste em andamento (amostra gratuita)" }),
+      E({ type: "STATUS", toStatus: "8. Teste em andamento (amostra paga)" }),
+      E({ type: "STATUS", toStatus: "15. Outra" }),
+    ];
+    expect(crm(rule({ type: "CRM_STATUS_REACHED", value: "5." }), events)).toBe(1);
+    expect(crm(rule({ type: "CRM_STATUS_REACHED", value: "5" }), events)).toBe(1);
+    expect(crm(rule({ type: "CRM_STATUS_REACHED", value: "teste em andamento" }), events)).toBe(2);
+    expect(crm(rule({ type: "CRM_STATUS_REACHED" }), events)).toBe(0);
+  });
+
+  it("litros e receita vendidos no dia", () => {
+    const events = [E({ type: "SALE", volumeL: 300, amount: 6000 }), E({ type: "SALE", volumeL: 200.5, amount: 4000 }), E({ type: "SALE", volumeL: 999, day: "2026-10-01" })];
+    expect(crm(rule({ type: "CRM_LITERS_SOLD" }), events)).toBe(500.5);
+    expect(crm(rule({ type: "CRM_REVENUE" }), events)).toBe(10000);
   });
 });
