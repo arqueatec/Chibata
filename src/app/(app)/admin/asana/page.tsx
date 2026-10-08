@@ -1,7 +1,7 @@
 import { requireAdminPage } from "@/lib/authz";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
 import { Badge, Card } from "@/components/ui";
-import { runAsanaSync, saveAsanaPeople, saveAsanaProjects } from "@/app/actions/asana";
+import { runAsanaSync, saveAsanaPeople, saveAsanaProjects, saveAsanaWorkspace } from "@/app/actions/asana";
 import { prisma } from "@/lib/db";
 import { asanaConfigured, asanaGet, asanaGetAll, AsanaError } from "@/lib/asana/client";
 import { suggestUserFor } from "@/lib/asana/mapping";
@@ -22,21 +22,28 @@ export default async function AdminAsana() {
   const settings = await getAsanaSettings();
   let me: { name: string; email: string; workspaces: Named[] } | null = null;
   let projects: Named[] = [];
+  let workspaces: (Named & { projects: Named[] })[] = [];
+  let ws: string | undefined;
   let asanaUsers: { gid: string; name: string; email: string | null }[] = [];
   let error: string | null = null;
   try {
     me = await asanaGet("/users/me", { opt_fields: "name,email,workspaces.name" });
-    const ws = settings.workspaceGid && me!.workspaces.some((w) => w.gid === settings.workspaceGid) ? settings.workspaceGid : me!.workspaces[0]?.gid;
+    // A mesma conta pode estar em vários espaços de trabalho (às vezes com o mesmo nome):
+    // listamos os projetos de cada um para a escolha; sem escolha salva, usa o que tem mais projetos.
+    workspaces = await Promise.all(
+      me!.workspaces.map(async (w) => ({ ...w, projects: await asanaGetAll<Named>("/projects", { workspace: w.gid, archived: false, opt_fields: "name" }) })),
+    );
+    ws = settings.workspaceGid && workspaces.some((w) => w.gid === settings.workspaceGid)
+      ? settings.workspaceGid
+      : [...workspaces].sort((a, b) => b.projects.length - a.projects.length)[0]?.gid;
     if (ws) {
-      [projects, asanaUsers] = await Promise.all([
-        asanaGetAll<Named>("/projects", { workspace: ws, archived: false, opt_fields: "name" }),
-        asanaGetAll<{ gid: string; name: string; email: string | null }>("/users", { workspace: ws, opt_fields: "name,email" }),
-      ]);
+      projects = workspaces.find((w) => w.gid === ws)!.projects;
+      asanaUsers = await asanaGetAll<{ gid: string; name: string; email: string | null }>("/users", { workspace: ws, opt_fields: "name,email" });
     }
   } catch (e) {
     error = e instanceof AsanaError ? e.message : "Não foi possível conectar ao Asana.";
   }
-  const workspaceGid = settings.workspaceGid ?? me?.workspaces[0]?.gid ?? "";
+  const workspaceGid = ws ?? "";
   const appUsers = await prisma.user.findMany({ where: { active: true }, select: { id: true, name: true, email: true, asanaEmails: true }, orderBy: { name: "asc" } });
   const last = settings.lastSync;
   const withEmail = asanaUsers.filter((u) => u.email);
@@ -81,6 +88,30 @@ export default async function AdminAsana() {
           responsável, prazo, status, link e campos personalizados das tarefas; a descrição não é importada.
         </p>
       </Card>
+
+      {!error && workspaces.length > 1 && (
+        <Card title="Espaço de trabalho do Asana">
+          <p className="mb-3 text-xs text-slate-500">Esta conta participa de {workspaces.length} espaços de trabalho. Escolha o da equipe.</p>
+          <ActionForm action={saveAsanaWorkspace}>
+            <div className="space-y-2">
+              {workspaces.map((w) => (
+                <label key={w.gid} className={`flex items-start gap-2 rounded-lg border p-3 text-sm ${w.gid === ws ? "border-brand-500 bg-brand-50/40" : "border-slate-200"}`}>
+                  <input type="radio" name="workspaceGid" value={w.gid} defaultChecked={w.gid === ws} className="mt-1 h-4 w-4" />
+                  <span>
+                    <span className="font-medium">{w.name}</span>
+                    <span className="text-slate-500"> · {w.projects.length} projeto(s)</span>
+                    {w.gid === ws && <Badge tone="brand">em uso</Badge>}
+                    <span className="block text-xs text-slate-500">
+                      {w.projects.length ? w.projects.slice(0, 5).map((p) => p.name).join(", ") + (w.projects.length > 5 ? "…" : "") : "sem projetos"}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <SubmitButton className="btn-secondary btn-sm">Usar este espaço de trabalho</SubmitButton>
+          </ActionForm>
+        </Card>
+      )}
 
       {!error && (
         <>
