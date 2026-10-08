@@ -111,7 +111,8 @@ export function IndicatorForm({
                 ))}
               </select>
               <p className="hint">
-                Regras de tarefas contam as tarefas do responsável (Asana ou app). Regras do CRM contam contas, contatos, etapas e vendas do CRM NoFire. Indicadores
+                Regras de tarefas contam as tarefas do responsável (Asana ou app). Regras do CRM contam contas, contatos, etapas e vendas do CRM NoFire. Regras de editais contam submissões, aprovações e
+                valor aprovado (use “Contar” abaixo: toda a equipe ou só os editais em que a pessoa é responsável). Indicadores
                 automáticos não são editados no check-in.
               </p>
             </div>
@@ -128,7 +129,7 @@ export function IndicatorForm({
               <input name="autoValue" defaultValue={rule?.value ?? ""} placeholder="ex.: Reunião · ou etapa 5" className="input" />
             </div>
             <div className="rounded-lg bg-slate-50 p-3 sm:col-span-2">
-              <p className="mb-2 text-xs font-semibold text-slate-600">Só para regras do CRM</p>
+              <p className="mb-2 text-xs font-semibold text-slate-600">Só para regras do CRM (o “Contar” vale também para editais)</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div>
                   <label className="label">Segmento da conta</label>
@@ -144,8 +145,8 @@ export function IndicatorForm({
                 <div>
                   <label className="label">Contar</label>
                   <select name="autoScope" defaultValue={rule?.scope ?? "all"} className="input">
-                    <option value="all">Toda a equipe comercial</option>
-                    <option value="person">Só o que a pessoa fez</option>
+                    <option value="all">Toda a equipe</option>
+                    <option value="person">Só o que a pessoa fez / é responsável</option>
                   </select>
                 </div>
               </div>

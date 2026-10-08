@@ -5,6 +5,7 @@ import { requireAccess } from "@/lib/authz";
 import { logout } from "@/app/actions/auth";
 import { ROLE_LABEL } from "@/lib/format";
 import { canSeeCommercial } from "@/lib/crm/access";
+import { canSeeGrants } from "@/lib/grants/access";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isAdmin, ctx } = await requireAccess();
@@ -18,6 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ? { href: "/pessoas", label: "Pessoas", icon: "☺", mobile: true }
       : { href: `/pessoas/${user.id}`, label: "Meu perfil", icon: "☺", mobile: true },
     ...(canSeeCommercial({ isAdmin, user }) ? [{ href: "/comercial", label: "Comercial", icon: "$" }] : []),
+    ...(canSeeGrants({ isAdmin, user }) ? [{ href: "/editais", label: "Editais", icon: "✎" }] : []),
     ...(isAdmin ? [{ href: "/admin", label: "Administração", icon: "⚙" }] : []),
     { href: "/meus-dados", label: "Meus dados", icon: "⛉" },
   ];

@@ -16,10 +16,16 @@ export const AUTO_RULE_TYPES = {
   CRM_STATUS_REACHED: "CRM: contas que entraram numa etapa do funil",
   CRM_LITERS_SOLD: "CRM: litros vendidos",
   CRM_REVENUE: "CRM: receita de vendas (R$)",
+  GRANTS_SUBMITTED: "Editais: submetidos no dia",
+  GRANTS_APPROVED: "Editais: aprovados no dia",
+  GRANTS_APPROVED_AMOUNT: "Editais: valor aprovado (R$)",
 } as const;
 
 export const CRM_RULE_TYPES = ["CRM_ACCOUNTS_CREATED", "CRM_CONTACTS", "CRM_STATUS_REACHED", "CRM_LITERS_SOLD", "CRM_REVENUE"] as const;
 export const isCrmRule = (t: string) => (CRM_RULE_TYPES as readonly string[]).includes(t);
+
+export const GRANT_RULE_TYPES = ["GRANTS_SUBMITTED", "GRANTS_APPROVED", "GRANTS_APPROVED_AMOUNT"] as const;
+export const isGrantRule = (t: string) => (GRANT_RULE_TYPES as readonly string[]).includes(t);
 
 export type AutoRuleType = keyof typeof AUTO_RULE_TYPES;
 
@@ -37,7 +43,7 @@ export const autoRuleSchema = z.object({
   segment: z.string().trim().max(120).optional(),
   /** CRM: "include" = só o segmento; "exclude" = todos menos o segmento. */
   segmentMode: z.enum(["include", "exclude"]).default("include"),
-  /** CRM: "all" = toda a equipe comercial; "person" = só o que a pessoa fez/é responsável. */
+  /** CRM/editais: "all" = toda a equipe; "person" = só o que a pessoa fez/é responsável. */
   scope: z.enum(["all", "person"]).default("all"),
 });
 
@@ -71,6 +77,14 @@ export interface AutoCrmEvent {
   toStatus: string | null;
   volumeL: number | null;
   amount: number | null;
+}
+
+/** Mudança de etapa de um edital (o dia em que foi submetido, aprovado…). */
+export interface AutoGrantEvent {
+  toStatus: string;
+  day: DayKey;
+  ownerId: string;
+  approvedAmount: number | null;
 }
 
 export interface AutoFieldChange {
@@ -125,9 +139,11 @@ export function computeAutoValue(params: {
   crmEvents?: AutoCrmEvent[];
   /** E-mails da pessoa no CRM (login + vínculos), para regras com escopo "person". */
   crmEmails?: string[];
+  grantEvents?: AutoGrantEvent[];
 }): number | null {
   const { rule, userId, day, today } = params;
   if (isCrmRule(rule.type)) return computeCrmValue(rule, day, params.crmEvents ?? [], params.crmEmails ?? []);
+  if (isGrantRule(rule.type)) return computeGrantValue(rule, userId, day, params.grantEvents ?? []);
   const mine = params.tasks.filter((t) => t.assigneeId === userId && matches(rule, t));
   switch (rule.type) {
     case "TASKS_COMPLETED":
@@ -194,6 +210,20 @@ function computeCrmValue(rule: AutoRule, day: DayKey, events: AutoCrmEvent[], em
   }
 }
 
+function computeGrantValue(rule: AutoRule, userId: string, day: DayKey, events: AutoGrantEvent[]): number {
+  const selected = events.filter((e) => e.day === day && (rule.scope !== "person" || e.ownerId === userId));
+  switch (rule.type) {
+    case "GRANTS_SUBMITTED":
+      return selected.filter((e) => e.toStatus === "SUBMITTED").length;
+    case "GRANTS_APPROVED":
+      return selected.filter((e) => e.toStatus === "APPROVED").length;
+    case "GRANTS_APPROVED_AMOUNT":
+      return Math.round(selected.filter((e) => e.toStatus === "APPROVED").reduce((s, e) => s + (e.approvedAmount ?? 0), 0) * 100) / 100;
+    default:
+      return 0;
+  }
+}
+
 export function describeAutoRule(rule: AutoRule, projectNames: Map<string, string> = new Map()): string {
   const parts: string[] = [AUTO_RULE_TYPES[rule.type]];
   if (rule.field && !isCrmRule(rule.type)) parts.push(`campo “${rule.field}”${rule.value ? ` = “${rule.value}”` : ""}`);
@@ -203,6 +233,7 @@ export function describeAutoRule(rule: AutoRule, projectNames: Map<string, strin
     if (rule.segment) parts.push(`${rule.segmentMode === "exclude" ? "exceto segmento" : "segmento"} “${rule.segment}”`);
     parts.push(rule.scope === "person" ? "só da pessoa" : "toda a equipe comercial");
   }
+  if (isGrantRule(rule.type)) parts.push(rule.scope === "person" ? "só editais em que a pessoa é responsável" : "todos os editais");
   if (rule.projectIds.length) parts.push(`projetos: ${rule.projectIds.map((id) => projectNames.get(id) ?? id).join(", ")}`);
   return parts.join(" · ");
 }

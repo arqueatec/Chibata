@@ -62,6 +62,16 @@ O Chibata **lê** o CRM pela API `GET /api/integracao/chibata` do próprio CRM, 
 
   Depois, em `/admin/crm`, vincule os usuários do CRM às pessoas do Chibata.
 
+### Editais (`/editais`)
+
+Acompanhamento dos editais de fomento, da prospecção ao encerramento. Visível para o administrador e para quem estiver marcado na **Equipe de editais** (configurada pelo administrador no fim da página `/editais`).
+
+- **Etapas** com histórico datado: em análise → em preparação → submetido → aprovado / não aprovado → em execução → prestação de contas → encerrado (ou desistência). A data de cada mudança pode ser retroativa.
+- **Dados**: órgão, chamada, link, responsável, valor solicitado, aprovado e contrapartida, prazos de submissão, resultado e execução.
+- **Metas, relatórios e parcelas** de cada edital, com prazo, responsável e valor. Opcionalmente cria uma tarefa para o responsável, que aparece em Tarefas e conta no desempenho dele; concluir o item conclui a tarefa e vice-versa.
+- **Alertas** no início (para a equipe de editais) e na página: submissão em até 7 dias (urgente em 3 ou vencida) e itens de projetos aprovados vencendo ou atrasados.
+- **Indicadores automáticos**: “Editais: submetidos no dia”, “aprovados no dia” e “valor aprovado (R$)”, contando toda a equipe ou só os editais em que a pessoa é responsável. Cada edital conta uma vez por etapa (idas e vindas não duplicam).
+
 ### Perfis de acesso (sempre verificados no servidor)
 
 - **Administrador (CEO):** vê tudo, gerencia pessoas, áreas, indicadores, pesos e projetos, edita check-ins fora do prazo, exclui check-ins e reabre revisões.

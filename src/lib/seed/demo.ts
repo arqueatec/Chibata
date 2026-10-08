@@ -169,6 +169,7 @@ export async function seedDemo(prisma: PrismaClient, opts: { password: string; l
     prisma.taskFieldChange.deleteMany(),
     prisma.crmEvent.deleteMany(),
     prisma.crmAccount.deleteMany(),
+    prisma.grant.deleteMany(),
     prisma.feedback.deleteMany(),
     prisma.monthlyReview.deleteMany(),
     prisma.task.updateMany({ data: { parentId: null } }),
