@@ -22,6 +22,7 @@ export const ACTION_LABEL: Record<string, string> = {
   RESOLVE: "Resolução",
   EXPORT: "Exportação",
   LOGIN: "Acesso",
+  SYNC: "Sincronização",
 };
 export const ENTITY_LABEL: Record<string, string> = {
   CheckIn: "Check-in",
@@ -33,6 +34,8 @@ export const ENTITY_LABEL: Record<string, string> = {
   User: "Pessoa",
   Area: "Área",
   Project: "Projeto/cliente",
+  Export: "Exportação de dados",
+  Integration: "Integração (Asana)",
 };
 
 const nf = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });

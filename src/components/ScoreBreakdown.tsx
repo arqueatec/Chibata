@@ -44,7 +44,7 @@ export function ScoreBreakdown({ result }: { result: ScoreResult }) {
                     {i.aggregation === "LAST" ? " · último valor" : ""}
                   </div>
                 </td>
-                <td className="text-right">{formatValue(i.actual, i.unit)}</td>
+                <td className="text-right">{i.noData ? <span className="text-xs text-amber-700">sem lançamento</span> : formatValue(i.actual, i.unit)}</td>
                 <td className="text-right">{formatValue(i.target, i.unit)}</td>
                 <td>
                   <ProgressBar value={i.attainment * 100} />

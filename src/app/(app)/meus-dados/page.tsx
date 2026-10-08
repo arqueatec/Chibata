@@ -27,6 +27,7 @@ export default async function MyDataPage() {
     prisma.session.count({ where: { userId: user.id, expiresAt: { gt: new Date() } } }),
   ]);
   const [ci, ie, tk, fb, rv, au] = counts;
+  const projects = (await prisma.project.findMany({ where: { active: true }, select: { id: true, name: true, asanaGid: true }, orderBy: { name: "asc" } })).map((p) => ({ id: p.id, name: p.name, fromAsana: !!p.asanaGid }));
   const allowPersonal = !!full.area?.allowPersonalIndicators;
 
   return (
@@ -79,13 +80,13 @@ export default async function MyDataPage() {
               <li key={i.id} className="py-2">
                 <details>
                   <summary className="cursor-pointer text-sm"><span className="font-medium">{i.name}</span> <span className="text-slate-500">· meta {PERIOD_LABEL[i.targetPeriod]} {i.targetValue} · peso {i.weight}{i.active ? "" : " · inativo"}</span></summary>
-                  <div className="mt-3"><IndicatorForm values={i} fixedOwner={user.id} /></div>
+                  <div className="mt-3"><IndicatorForm values={i} fixedOwner={user.id} projects={projects} /></div>
                 </details>
               </li>
             ))}
           </ul>
           <h3 className="mb-2 text-sm font-semibold">Novo indicador</h3>
-          <IndicatorForm fixedOwner={user.id} values={{ name: "", description: null, unit: "COUNT", direction: "HIGHER_BETTER", aggregation: "SUM", targetValue: 1, targetPeriod: "WEEKLY", weight: 1, sortOrder: personal.length, active: true, areaId: null, ownerId: user.id }} />
+          <IndicatorForm fixedOwner={user.id} projects={projects} values={{ name: "", description: null, unit: "COUNT", direction: "HIGHER_BETTER", aggregation: "SUM", targetValue: 1, targetPeriod: "WEEKLY", weight: 1, sortOrder: personal.length, active: true, areaId: null, ownerId: user.id }} />
         </Card>
       )}
 

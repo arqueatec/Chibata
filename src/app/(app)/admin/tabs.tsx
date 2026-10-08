@@ -9,6 +9,9 @@ const ITEMS = [
   { href: "/admin/indicadores", label: "Indicadores" },
   { href: "/admin/projetos", label: "Projetos e clientes" },
   { href: "/admin/auditoria", label: "Auditoria" },
+  { href: "/admin/exportar", label: "Exportar" },
+  { href: "/admin/asana", label: "Asana" },
+  { href: "/admin/carga", label: "Carga de metas" },
 ];
 
 export function AdminTabs() {

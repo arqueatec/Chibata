@@ -64,6 +64,8 @@ export interface IndicatorResult {
   /** Pontos que este indicador somou à nota final (0-100). */
   contribution: number;
   explanation: string;
+  /** Sem nenhum lançamento no período: o atingimento conta como 0% (não como meta cumprida). */
+  noData: boolean;
 }
 
 export interface ScoreResult {
@@ -169,18 +171,26 @@ export function computeScore(input: ScoringInput): ScoreResult {
   }
 
   let goalSum = 0;
+  const anyCheckIn = checkinsDone > 0;
   const indicators: IndicatorResult[] = input.indicators.map((ind) => {
     const actual = aggregate(ind, entries);
     const target = periodTarget(ind, countedDays);
-    const raw = attainmentOf(ind.direction, actual, target);
+    // Falta de lançamento não é desempenho: sem esta regra, indicadores "menor é melhor"
+    // (ex.: tempo médio por lote) dariam 100% para quem não informou nada.
+    // - "último valor": precisa de pelo menos um lançamento no período;
+    // - "soma, menor é melhor": em branco vale como zero ocorrências só se houve check-in no período.
+    const hasEntry = entries.some((e) => e.indicatorId === ind.id);
+    const noData = !hasEntry && (ind.aggregation === "LAST" || (ind.direction === "LOWER_BETTER" && !anyCheckIn));
+    const raw = noData ? 0 : attainmentOf(ind.direction, actual, target);
     const att = Math.min(MAX_ATTAINMENT_FOR_SCORE, raw);
     const nw = ind.weight > 0 && weightSum > 0 ? ind.weight / weightSum : 0;
     goalSum += att * nw;
     const contribution = att * nw * iShare * 100;
     const dir = ind.direction === "HIGHER_BETTER" ? "meta" : "máximo aceitável";
-    const explanation =
-      `${round(actual, 2)} de ${round(target, 2)} (${dir}) → ${round(raw * 100)}% ` +
-      `(usado ${round(att * 100)}%) × peso ${round(nw * 100)}% dos indicadores × ${round(iShare * 100)}% = ${round(contribution)} pts`;
+    const explanation = noData
+      ? `sem lançamento no período → 0% × peso ${round(nw * 100)}% dos indicadores = 0 pts`
+      : `${round(actual, 2)} de ${round(target, 2)} (${dir}) → ${round(raw * 100)}% ` +
+        `(usado ${round(att * 100)}%) × peso ${round(nw * 100)}% dos indicadores × ${round(iShare * 100)}% = ${round(contribution)} pts`;
     return {
       id: ind.id,
       name: ind.name,
@@ -195,6 +205,7 @@ export function computeScore(input: ScoringInput): ScoreResult {
       normalizedWeight: round(nw, 4),
       contribution: round(contribution, 2),
       explanation,
+      noData,
     };
   });
   const goalRaw = active.length ? goalSum : null;

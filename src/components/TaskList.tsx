@@ -13,6 +13,7 @@ export interface TaskRow {
   project: { name: string; kind: string } | null;
   _count?: { children: number };
   childrenDone?: number;
+  asanaGid?: string | null;
 }
 
 export function TaskList({ tasks, today, showAssignee = true }: { tasks: TaskRow[]; today: string; showAssignee?: boolean }) {
@@ -30,6 +31,7 @@ export function TaskList({ tasks, today, showAssignee = true }: { tasks: TaskRow
                   {t.kind === "GOAL" && <span className="mr-1 text-brand-700">◎ Meta:</span>}
                   {t.title}
                 </Link>
+                {t.asanaGid && <span className="ml-1 rounded bg-rose-50 px-1 text-[10px] font-semibold text-rose-700" title="Sincronizada do Asana">Asana</span>}
                 <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-slate-500">
                   {showAssignee && <span>{t.assignee.name}</span>}
                   {due && <span className={overdue ? "font-semibold text-red-700" : ""}>prazo {formatDay(due)}</span>}

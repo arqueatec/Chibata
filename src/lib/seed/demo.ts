@@ -165,6 +165,8 @@ export async function seedDemo(prisma: PrismaClient, opts: { password: string; l
   console.log("Limpando dados…");
   await prisma.$transaction([
     prisma.auditLog.deleteMany(),
+    prisma.integrationSetting.deleteMany(),
+    prisma.taskFieldChange.deleteMany(),
     prisma.feedback.deleteMany(),
     prisma.monthlyReview.deleteMany(),
     prisma.task.updateMany({ data: { parentId: null } }),

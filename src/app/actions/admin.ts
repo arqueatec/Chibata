@@ -1,6 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
+import { autoRuleSchema, type AutoRule } from "@/lib/domain/autoIndicators";
+import { recomputeAutoIndicators } from "@/lib/services/autoIndicators";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { formToObject, safeAction, UserFacingError, type ActionResult } from "@/lib/actions";
@@ -128,9 +131,28 @@ async function authorizeIndicator(access: Access, target: { areaId: string | nul
   }
 }
 
+/** Regra de preenchimento automático a partir dos campos "auto*" do formulário (null = manual). */
+function autoRuleFromForm(raw: Record<string, unknown>): AutoRule | null {
+  const type = String(raw.autoType ?? "");
+  if (!type) return null;
+  const projects = raw.autoProjects === undefined ? [] : Array.isArray(raw.autoProjects) ? raw.autoProjects : [raw.autoProjects];
+  const rule = autoRuleSchema.parse({
+    type,
+    projectIds: projects.map(String).filter(Boolean),
+    nameContains: String(raw.autoName ?? "").trim() || undefined,
+    field: String(raw.autoField ?? "").trim() || undefined,
+    value: String(raw.autoValue ?? "").trim() || undefined,
+  });
+  if ((rule.type === "FIELD_SUM" || rule.type === "FIELD_CHANGED_TO") && !rule.field) throw new UserFacingError("Informe o nome do campo do Asana.");
+  if (rule.type === "FIELD_CHANGED_TO" && !rule.value) throw new UserFacingError("Informe o valor do campo que deve ser contado.");
+  return rule;
+}
+
 export const saveIndicator = safeAction(async (_prev: ActionResult, fd: FormData) => {
   const access = await requireActionAccess();
-  const d = indicatorSchema.parse(formToObject(fd));
+  const raw = formToObject(fd);
+  const d = indicatorSchema.parse(raw);
+  const autoRule = autoRuleFromForm(raw);
   if (!!d.areaId === !!d.ownerId) throw new UserFacingError("Escolha uma área OU uma pessoa (indicador pessoal).");
   const fields = {
     name: d.name,
@@ -145,23 +167,25 @@ export const saveIndicator = safeAction(async (_prev: ActionResult, fd: FormData
     active: d.active,
     areaId: d.areaId,
     ownerId: d.ownerId,
+    autoRule: autoRule ?? Prisma.DbNull,
   };
   await authorizeIndicator(access, fields);
   await prisma.$transaction(async (tx) => {
     if (d.id) {
       const existing = await tx.indicator.findUniqueOrThrow({ where: { id: d.id } });
       await authorizeIndicator(access, existing);
-      const ch = diff(existing as unknown as Record<string, unknown>, fields);
+      const ch = diff(existing as unknown as Record<string, unknown>, { ...fields, autoRule: autoRule });
       if (!ch.changed) return;
       await tx.indicator.update({ where: { id: d.id }, data: fields });
       await audit({ actorId: access.user.id, subjectUserId: existing.ownerId, entityType: "Indicator", entityId: d.id, action: "UPDATE", before: { name: existing.name, ...ch.before }, after: ch.after }, tx);
     } else {
       const i = await tx.indicator.create({ data: fields });
-      await audit({ actorId: access.user.id, subjectUserId: d.ownerId, entityType: "Indicator", entityId: i.id, action: "CREATE", after: fields }, tx);
+      await audit({ actorId: access.user.id, subjectUserId: d.ownerId, entityType: "Indicator", entityId: i.id, action: "CREATE", after: { ...fields, autoRule } }, tx);
     }
   });
+  if (autoRule) await recomputeAutoIndicators();
   revalidatePath("/", "layout");
-  return { ok: true, message: "Indicador salvo." };
+  return { ok: true, message: autoRule ? "Indicador salvo. Os valores automáticos dos últimos dias foram calculados." : "Indicador salvo." };
 });
 
 export const deleteIndicator = safeAction(async (_prev: ActionResult, fd: FormData) => {

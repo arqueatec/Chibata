@@ -19,8 +19,26 @@ Aplicativo de acompanhamento diário de desempenho da equipe ArqueaTec: check-in
 | **Página individual** (`/pessoas/[id]`) | Evolução de 12 semanas (nota, % da meta, autoavaliação), detalhamento da nota, tabela dos indicadores dos últimos 10 dias úteis, metas e tarefas, histórico de check-ins, feedbacks, revisões mensais e auditoria sobre a pessoa. |
 | **Feedbacks** | Comentário ou reconhecimento ligado a um dia (check-in), a uma tarefa ou a um período (semana/mês). |
 | **Revisões mensais** (`/pessoas/[id]/revisao/AAAA-MM`) | Rascunho → finalizada. Na finalização, a nota e o detalhamento do mês ficam **congelados**. Só o administrador reabre, e a justificativa (obrigatória) fica registrada na auditoria. |
-| **Administração** (`/admin`) | Pessoas (perfil de acesso, área, liderança, ativação, senha), áreas e pesos, indicadores, projetos e clientes, e a trilha de auditoria com filtros. |
+| **Administração** (`/admin`) | Pessoas (perfil de acesso, área, liderança, ativação, senha), áreas e pesos, indicadores, projetos e clientes, e a trilha de auditoria com filtros (tipo, pessoa, datas) e exportação em Excel. |
+| **Exportar** (`/admin/exportar`) | Planilha Excel da equipe por período (e opcionalmente por área ou pessoa), com abas: Leia-me, Pessoas, Notas semanais, Notas mensais, Detalhe das notas, Check-ins, Indicadores (diário), Tarefas, Feedbacks, Revisões e Auditoria (uma linha por campo alterado). Pronta para abrir no Excel ou enviar ao Claude para gerar relatórios; a aba Leia-me traz uma sugestão de pedido. |
 | **Meus dados** (`/meus-dados`) | Tudo o que está registrado sobre a pessoa, exportação em JSON, lembretes por e-mail, indicadores pessoais, troca de senha e encerramento das outras sessões. |
+
+### Integração com o Asana (`/admin/asana`)
+
+- **Asana → app:** os projetos escolhidos são sincronizados todo dia às 7h45, quando alguém abre o check-in (se a última sincronização tiver mais de 10 minutos), pelo botão "Sincronizar agora" e pelo botão "Atualizar com o Asana" no check-in.
+  - São importados título, responsável, prazo, status, link, subtarefas e campos personalizados das tarefas. A descrição não é importada (minimização de dados).
+  - O responsável é identificado pela conta do Asana vinculada a cada pessoa.
+  - Metas que já existem no app com o mesmo título e o mesmo responsável são **vinculadas**, sem duplicar.
+  - As tarefas de exemplo do Asana são ignoradas.
+- **Check-in pré-preenchido:** "o que foi feito" traz as tarefas concluídas desde o último check-in; "o que será feito" traz as tarefas em andamento e as que vencem até amanhã. As tarefas bloqueadas aparecem como aviso.
+- **Indicadores automáticos:** cada indicador pode ter uma regra de preenchimento. As regras são:
+  - tarefas concluídas, criadas ou atrasadas, com filtro por projeto e por texto no título;
+  - soma de um campo numérico, como "Valor estimado";
+  - vezes que um campo mudou para um valor, como "Status do lead" = "Reunião".
+
+  Esses indicadores aparecem no check-in sem edição e são recalculados para os últimos 35 dias.
+- **App → Asana:** concluir ou reabrir no app uma tarefa vinda do Asana conclui ou reabre a tarefa lá. Título, prazo e responsável são editados no Asana.
+- **Configuração:** crie um token pessoal no Asana (Configurações → Apps → Console do desenvolvedor) e salve-o na Vercel como `ASANA_TOKEN`. Depois, em `/admin/asana`, escolha os projetos e confira os vínculos das pessoas.
 
 ### Perfis de acesso (sempre verificados no servidor)
 
@@ -150,7 +168,8 @@ Em "Entrar", informe o e-mail e clique em "Enviar link de acesso". Com `RESEND_A
    - opcional: `RESEND_API_KEY` e `EMAIL_FROM` (domínio verificado na Resend) para link mágico e lembretes
 4. **Deploy:** a Vercel executa o script `vercel-build` (`prisma generate && prisma migrate deploy && next build`), então as migrações são aplicadas a cada deploy.
 5. **Primeiros dados:** abra `https://<seu-app>/setup` (a página só existe enquanto o banco não tem nenhuma pessoa). Informe o valor de `CRON_SECRET` como código de configuração, escolha **Dados de demonstração** (as 6 pessoas e 60 dias de dados) ou **Só o administrador**, e defina a senha inicial. Alternativa pela sua máquina: `DATABASE_URL="<url-direta>" DATABASE_URL_UNPOOLED="<url-direta>" npm run db:seed`.
-6. **Lembretes:** `vercel.json` agenda `/api/cron/reminders` em dias úteis às 12:00 UTC (9:00 em Brasília). A Vercel envia `Authorization: Bearer $CRON_SECRET` automaticamente. O e-mail só vai para quem ativou os lembretes em "Meus dados" e ainda não fez o check-in do dia.
+6. **Asana (opcional):** adicione `ASANA_TOKEN` nas variáveis de ambiente e configure em `/admin/asana`. O `vercel.json` agenda a sincronização diária em `/api/cron/asana`, às 10:45 UTC.
+7. **Lembretes:** `vercel.json` agenda `/api/cron/reminders` em dias úteis às 12:00 UTC (9:00 em Brasília). A Vercel envia `Authorization: Bearer $CRON_SECRET` automaticamente. O e-mail só vai para quem ativou os lembretes em "Meus dados" e ainda não fez o check-in do dia.
 
 ---
 

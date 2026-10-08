@@ -104,6 +104,8 @@ model User {
   reports          User[]    @relation("Leadership")
   active           Boolean   @default(true)
   reminderEnabled  Boolean   @default(false)
+  /// E-mails da pessoa no Asana (pode haver mais de uma conta), usados para vincular as tarefas.
+  asanaEmails      String[]  @default([])
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -158,6 +160,8 @@ model Indicator {
   weight        Float         @default(1)
   sortOrder     Int           @default(0)
   active        Boolean       @default(true)
+  /// Regra de preenchimento automático (null = lançado manualmente no check-in). Ver src/lib/domain/autoIndicators.ts.
+  autoRule      Json?
   /// Indicador de área (areaId) OU indicador pessoal (ownerId).
   areaId        String?
   area          Area?         @relation(fields: [areaId], references: [id])
@@ -199,6 +203,8 @@ model IndicatorEntry {
   user         User      @relation(fields: [userId], references: [id])
   date         DateTime  @db.Date
   value        Float
+  /// MANUAL (check-in) ou AUTO (calculado a partir das tarefas/Asana).
+  source       String    @default("MANUAL")
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -211,6 +217,8 @@ model Project {
   name       String      @unique
   kind       ProjectKind @default(PROJECT)
   active     Boolean     @default(true)
+  /// Projeto correspondente no Asana (preenchido pela sincronização).
+  asanaGid   String?     @unique
   createdAt  DateTime    @default(now())
   tasks      Task[]
 }
@@ -233,9 +241,16 @@ model Task {
   parentId       String?
   parent         Task?       @relation("GoalTasks", fields: [parentId], references: [id])
   children       Task[]      @relation("GoalTasks")
+  /// Tarefa correspondente no Asana. Quando preenchido, o Asana é a fonte de título, prazo e status.
+  asanaGid       String?     @unique
+  asanaUrl       String?
+  /// Campos personalizados do Asana (nome → valor), usados pelos indicadores automáticos.
+  asanaFields    Json?
+  asanaSyncedAt  DateTime?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   feedbacks      Feedback[]
+  fieldChanges   TaskFieldChange[]
 
   @@index([assigneeId, status])
   @@index([dueDate])
@@ -300,4 +315,25 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([subjectUserId, createdAt])
+}
+
+/// Mudanças de campos personalizados no Asana (ex.: "Status do lead" → "Reunião"), para indicadores automáticos.
+model TaskFieldChange {
+  id         String   @id @default(cuid())
+  taskId     String
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  /// ID do evento no Asana (story), evita duplicar.
+  asanaGid   String   @unique
+  field      String
+  toValue    String?
+  changedAt  DateTime
+
+  @@index([taskId, changedAt])
+}
+
+/// Configurações de integrações (ex.: chave "asana": projetos sincronizados e resultado da última sincronização).
+model IntegrationSetting {
+  key        String   @id
+  value      Json
+  updatedAt  DateTime @updatedAt
 }
