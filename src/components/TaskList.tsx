@@ -28,7 +28,7 @@ export function TaskList({ tasks, today, showAssignee = true }: { tasks: TaskRow
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
                 <Link href={`/tarefas/${t.id}`} className="font-medium text-slate-900 hover:underline">
-                  {t.kind === "GOAL" && <span className="mr-1 text-brand-700">◎ Meta:</span>}
+                  {t.kind === "GOAL" && <span className="mr-1 text-accent-700">◎ Meta:</span>}
                   {t.title}
                 </Link>
                 {t.asanaGid && <span className="ml-1 rounded bg-rose-50 px-1 text-[10px] font-semibold text-rose-700" title="Sincronizada do Asana">Asana</span>}

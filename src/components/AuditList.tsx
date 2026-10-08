@@ -40,7 +40,7 @@ export function AuditList({ items, showSubject = false }: { items: AuditRow[]; s
             {a.reason && <p className="mt-1 text-xs"><strong>Justificativa:</strong> {a.reason}</p>}
             {keys.length > 0 && (
               <details className="mt-1">
-                <summary className="cursor-pointer text-xs text-brand-700">ver valores</summary>
+                <summary className="cursor-pointer text-xs text-accent-700">ver valores</summary>
                 <div className="mt-1 overflow-x-auto">
                   <table className="tbl text-xs">
                     <thead>

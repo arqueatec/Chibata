@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { DesktopNav, MobileNav, type NavItem } from "@/components/Nav";
 import { requireAccess } from "@/lib/authz";
@@ -20,12 +21,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ];
   return (
     <div className="min-h-dvh pb-20 md:pb-8">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <header className="sticky top-0 z-10 border-t-4 border-b border-t-brand-500 border-b-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2">
           <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2 font-bold text-brand-700">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white">A</span>
-              <span className="hidden sm:inline">ArqueaTec</span>
+            <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="ArqueaTec · início">
+              <Image src="/logo-arqueatec.png" alt="ArqueaTec" width={98} height={36} priority className="h-8 w-auto sm:h-9" />
             </Link>
             <DesktopNav items={items} />
           </div>

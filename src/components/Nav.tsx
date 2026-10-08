@@ -44,7 +44,7 @@ export function MobileNav({ items }: { items: NavItem[] }) {
         <Link
           key={i.href}
           href={i.href}
-          className={`flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${active(pathname, i.href) ? "text-brand-700" : "text-slate-500"}`}
+          className={`flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${active(pathname, i.href) ? "text-accent-700" : "text-slate-500"}`}
         >
           <span aria-hidden className="text-lg leading-none">{i.icon}</span>
           {i.label}

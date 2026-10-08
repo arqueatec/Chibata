@@ -123,8 +123,8 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
         <TrendChart
           labels={weeks.map((w) => formatShortDay(w.start))}
           series={[
-            { name: "Nota", color: "#17706f", values: weekResults.map((r) => r?.score ?? null) },
-            { name: "% da meta", color: "#6366f1", values: weekResults.map((r) => r?.goalAttainment ?? null), dashed: true },
+            { name: "Nota", color: "#2e3d44", values: weekResults.map((r) => r?.score ?? null) },
+            { name: "% da meta", color: "#2a8a91", values: weekResults.map((r) => r?.goalAttainment ?? null), dashed: true },
             { name: "Autoavaliação (×20)", color: "#f59e0b", values: selfAvg, dashed: true },
           ]}
         />
@@ -203,7 +203,7 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
                   ))}
                   {canFeedback && (
                     <details className="mt-2">
-                      <summary className="cursor-pointer text-xs text-brand-700">Comentar este dia</summary>
+                      <summary className="cursor-pointer text-xs text-accent-700">Comentar este dia</summary>
                       <div className="mt-2"><FeedbackForm targetUserId={id} checkInId={c.id} compact /></div>
                     </details>
                   )}
