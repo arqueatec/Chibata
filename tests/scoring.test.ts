@@ -171,6 +171,57 @@ describe("computeScore", () => {
     expect(r.indicators.find((i) => i.id === "z")!.contribution).toBe(0);
   });
 
+  it("indicador 'menor é melhor' de último valor sem lançamento não conta como meta cumprida", () => {
+    // Caso real: "Tempo médio de produção por lote" (máximo 4 h) sem nenhum valor informado
+    const r = computeScore({
+      ...WEEK,
+      asOf: "2026-09-27",
+      indicators: [
+        ind({ id: "litros", targetValue: 100, weight: 3 }),
+        ind({ id: "tempo", direction: "LOWER_BETTER", aggregation: "LAST", targetValue: 4, targetPeriod: "MONTHLY", weight: 2 }),
+      ],
+      entries: [],
+      checkInDates: [],
+      indicatorsWeight: 80,
+      checkinWeight: 20,
+    });
+    const tempo = r.indicators.find((i) => i.id === "tempo")!;
+    expect(tempo.noData).toBe(true);
+    expect(tempo.attainment).toBe(0);
+    expect(tempo.contribution).toBe(0);
+    expect(tempo.explanation).toContain("sem lançamento");
+    expect(r.score).toBe(0);
+  });
+
+  it("'menor é melhor' de último valor com lançamento abaixo do máximo vale 100%", () => {
+    const r = computeScore({
+      ...WEEK,
+      asOf: "2026-09-27",
+      indicators: [ind({ id: "tempo", direction: "LOWER_BETTER", aggregation: "LAST", targetValue: 4, weight: 1 })],
+      entries: [{ indicatorId: "tempo", date: "2026-09-22", value: 3.5 }],
+      checkInDates: [],
+      indicatorsWeight: 100,
+      checkinWeight: 0,
+    });
+    expect(r.indicators[0].noData).toBe(false);
+    expect(r.score).toBe(100);
+  });
+
+  it("'menor é melhor' de soma (ex.: não conformidades) em branco vale zero ocorrências só se houve check-in", () => {
+    const base = {
+      ...WEEK,
+      asOf: "2026-09-27",
+      indicators: [ind({ id: "nc", direction: "LOWER_BETTER", targetValue: 2, targetPeriod: "MONTHLY" as const, weight: 1 })],
+      entries: [],
+      indicatorsWeight: 100,
+      checkinWeight: 0,
+    };
+    expect(computeScore({ ...base, checkInDates: ["2026-09-21"] }).score).toBe(100);
+    const none = computeScore({ ...base, checkInDates: [] });
+    expect(none.indicators[0].noData).toBe(true);
+    expect(none.score).toBe(0);
+  });
+
   it("calcula variação em relação ao período anterior", () => {
     expect(scoreDelta(70, 62.5)).toBe(7.5);
     expect(scoreDelta(null, 50)).toBeNull();
