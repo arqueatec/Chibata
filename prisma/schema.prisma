@@ -106,6 +106,8 @@ model User {
   reminderEnabled  Boolean   @default(false)
   /// E-mails da pessoa no Asana (pode haver mais de uma conta), usados para vincular as tarefas.
   asanaEmails      String[]  @default([])
+  /// E-mails da pessoa no CRM NoFire, usados para atribuir contatos, vendas e próximas ações.
+  crmEmails        String[]  @default([])
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -336,4 +338,47 @@ model IntegrationSetting {
   key        String   @id
   value      Json
   updatedAt  DateTime @updatedAt
+}
+
+/// Cópia (somente leitura) das contas do CRM NoFire, atualizada a cada sincronização.
+/// Não guarda dados pessoais dos clientes (o CRM não os envia).
+model CrmAccount {
+  id              Int       @id
+  companyName     String
+  segment         String
+  city            String
+  state           String
+  status          String
+  priority        String
+  ownerEmail      String?
+  nextAction      String?
+  nextActionDate  DateTime? @db.Date
+  lastContactDate DateTime?
+  proposedVolumeL Float     @default(0)
+  purchasedVolumeL Float    @default(0)
+  revenueTotal    Float     @default(0)
+  crmCreatedAt    DateTime
+  syncedAt        DateTime  @default(now())
+}
+
+/// Eventos datados vindos do CRM (contas criadas, contatos, mudanças de etapa, vendas),
+/// usados nos indicadores automáticos e no check-in.
+model CrmEvent {
+  /// tipo:id no CRM (ex.: "SALE:12")
+  id          String   @id
+  type        String
+  accountId   Int
+  accountName String
+  segment     String
+  /// Dia (AAAA-MM-DD no fuso do app) em que o evento aconteceu.
+  day         DateTime @db.Date
+  at          DateTime
+  userEmail   String?
+  toStatus    String?
+  volumeL     Float?
+  amount      Float?
+  text        String?
+
+  @@index([day])
+  @@index([type, day])
 }

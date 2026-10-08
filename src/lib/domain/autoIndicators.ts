@@ -11,7 +11,15 @@ export const AUTO_RULE_TYPES = {
   TASKS_OVERDUE: "Tarefas atrasadas (abertas com prazo vencido)",
   FIELD_SUM: "Soma de um campo numérico do Asana nas tarefas abertas (valor atual)",
   FIELD_CHANGED_TO: "Vezes em que um campo do Asana mudou para um valor",
+  CRM_ACCOUNTS_CREATED: "CRM: contas cadastradas no dia",
+  CRM_CONTACTS: "CRM: contatos registrados no dia",
+  CRM_STATUS_REACHED: "CRM: contas que entraram numa etapa do funil",
+  CRM_LITERS_SOLD: "CRM: litros vendidos",
+  CRM_REVENUE: "CRM: receita de vendas (R$)",
 } as const;
+
+export const CRM_RULE_TYPES = ["CRM_ACCOUNTS_CREATED", "CRM_CONTACTS", "CRM_STATUS_REACHED", "CRM_LITERS_SOLD", "CRM_REVENUE"] as const;
+export const isCrmRule = (t: string) => (CRM_RULE_TYPES as readonly string[]).includes(t);
 
 export type AutoRuleType = keyof typeof AUTO_RULE_TYPES;
 
@@ -23,8 +31,14 @@ export const autoRuleSchema = z.object({
   nameContains: z.string().trim().max(120).optional(),
   /** Campo personalizado do Asana (FIELD_SUM e FIELD_CHANGED_TO). */
   field: z.string().trim().max(120).optional(),
-  /** Valor-alvo do campo (FIELD_CHANGED_TO). */
+  /** Valor-alvo do campo (FIELD_CHANGED_TO) ou etapa do funil (CRM_STATUS_REACHED, ex.: "5." ou "Teste"). */
   value: z.string().trim().max(120).optional(),
+  /** CRM: filtro por segmento da conta (texto contido). */
+  segment: z.string().trim().max(120).optional(),
+  /** CRM: "include" = só o segmento; "exclude" = todos menos o segmento. */
+  segmentMode: z.enum(["include", "exclude"]).default("include"),
+  /** CRM: "all" = toda a equipe comercial; "person" = só o que a pessoa fez/é responsável. */
+  scope: z.enum(["all", "person"]).default("all"),
 });
 
 export type AutoRule = z.infer<typeof autoRuleSchema>;
@@ -45,6 +59,18 @@ export interface AutoTask {
   /** Dia (fuso do app) em que foi concluída; null se aberta. */
   completedOn: DayKey | null;
   fields: Record<string, string | number | null>;
+}
+
+export type CrmEventType = "ACCOUNT_CREATED" | "CONTACT" | "STATUS" | "SALE";
+
+export interface AutoCrmEvent {
+  type: CrmEventType;
+  day: DayKey;
+  segment: string;
+  userEmail: string | null;
+  toStatus: string | null;
+  volumeL: number | null;
+  amount: number | null;
 }
 
 export interface AutoFieldChange {
@@ -96,8 +122,12 @@ export function computeAutoValue(params: {
   today: DayKey;
   tasks: AutoTask[];
   changes: AutoFieldChange[];
+  crmEvents?: AutoCrmEvent[];
+  /** E-mails da pessoa no CRM (login + vínculos), para regras com escopo "person". */
+  crmEmails?: string[];
 }): number | null {
   const { rule, userId, day, today } = params;
+  if (isCrmRule(rule.type)) return computeCrmValue(rule, day, params.crmEvents ?? [], params.crmEmails ?? []);
   const mine = params.tasks.filter((t) => t.assigneeId === userId && matches(rule, t));
   switch (rule.type) {
     case "TASKS_COMPLETED":
@@ -124,13 +154,55 @@ export function computeAutoValue(params: {
           (!rule.value || (c.toValue !== null && normalize(c.toValue) === normalize(rule.value))),
       ).length;
     }
+    default:
+      return null;
+  }
+}
+
+function computeCrmValue(rule: AutoRule, day: DayKey, events: AutoCrmEvent[], emails: string[]): number {
+  const mine = new Set(emails.map((e) => e.toLowerCase()));
+  const selected = events.filter((e) => {
+    if (e.day !== day) return false;
+    if (rule.segment) {
+      const inSeg = normalize(e.segment).includes(normalize(rule.segment));
+      if (rule.segmentMode === "include" ? !inSeg : inSeg) return false;
+    }
+    if (rule.scope === "person" && !(e.userEmail && mine.has(e.userEmail.toLowerCase()))) return false;
+    return true;
+  });
+  const of = (t: CrmEventType) => selected.filter((e) => e.type === t);
+  switch (rule.type) {
+    case "CRM_ACCOUNTS_CREATED":
+      return of("ACCOUNT_CREATED").length;
+    case "CRM_CONTACTS":
+      return of("CONTACT").length;
+    case "CRM_STATUS_REACHED": {
+      const target = normalize(rule.value ?? "");
+      if (!target) return 0;
+      // "5." casa com "5. Teste em andamento…"; texto casa por trecho ("teste").
+      return of("STATUS").filter((e) => {
+        const s = normalize(e.toStatus ?? "");
+        return /^\d+\.?$/.test(target) ? s.startsWith(target.endsWith(".") ? target : `${target}.`) : s.includes(target);
+      }).length;
+    }
+    case "CRM_LITERS_SOLD":
+      return Math.round(of("SALE").reduce((s, e) => s + (e.volumeL ?? 0), 0) * 100) / 100;
+    case "CRM_REVENUE":
+      return Math.round(of("SALE").reduce((s, e) => s + (e.amount ?? 0), 0) * 100) / 100;
+    default:
+      return 0;
   }
 }
 
 export function describeAutoRule(rule: AutoRule, projectNames: Map<string, string> = new Map()): string {
   const parts: string[] = [AUTO_RULE_TYPES[rule.type]];
-  if (rule.field) parts.push(`campo “${rule.field}”${rule.value ? ` = “${rule.value}”` : ""}`);
+  if (rule.field && !isCrmRule(rule.type)) parts.push(`campo “${rule.field}”${rule.value ? ` = “${rule.value}”` : ""}`);
   if (rule.nameContains) parts.push(`título contém “${rule.nameContains}”`);
+  if (isCrmRule(rule.type)) {
+    if (rule.type === "CRM_STATUS_REACHED" && rule.value) parts.push(`etapa “${rule.value}”`);
+    if (rule.segment) parts.push(`${rule.segmentMode === "exclude" ? "exceto segmento" : "segmento"} “${rule.segment}”`);
+    parts.push(rule.scope === "person" ? "só da pessoa" : "toda a equipe comercial");
+  }
   if (rule.projectIds.length) parts.push(`projetos: ${rule.projectIds.map((id) => projectNames.get(id) ?? id).join(", ")}`);
   return parts.join(" · ");
 }

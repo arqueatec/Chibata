@@ -40,6 +40,28 @@ Aplicativo de acompanhamento diário de desempenho da equipe ArqueaTec: check-in
 - **App → Asana:** concluir ou reabrir no app uma tarefa vinda do Asana conclui ou reabre a tarefa lá. Título, prazo e responsável são editados no Asana.
 - **Configuração:** crie um token pessoal no Asana (Configurações → Apps → Console do desenvolvedor) e salve-o na Vercel como `ASANA_TOKEN`. Depois, em `/admin/asana`, escolha os projetos e confira os vínculos das pessoas.
 
+### Integração com o CRM NoFire (`/admin/crm` e `/comercial`)
+
+O Chibata **lê** o CRM pela API `GET /api/integracao/chibata` do próprio CRM, protegida por token. A integração é somente leitura: o Chibata nunca altera nada no CRM.
+
+- **O que é copiado:** contas (foto atual) e os eventos datados dos últimos 60 dias: contas criadas, contatos, mudanças de etapa do funil e vendas. Telefones, e-mails e nomes de contato dos clientes não vêm, nem o fluxo de caixa.
+- **Quando sincroniza:** todo dia às 7h45, junto com o Asana; ao abrir o check-in ou o painel Comercial, se a última sincronização tiver mais de 10 minutos; e pelo botão em `/admin/crm`.
+- **Indicadores automáticos de vendas:**
+  - contas cadastradas, com filtro de segmento (por exemplo, "Bombeiros" para prospects institucionais, ou "exceto Bombeiros" para os privados);
+  - contatos registrados;
+  - contas que entraram numa etapa do funil (por exemplo, etapa 5 = teste em andamento);
+  - litros vendidos e receita, tirados das vendas registradas no CRM.
+
+  As regras podem contar a equipe comercial inteira ou só o que a pessoa fez.
+- **Painel Comercial:** litros e receita do mês, funil por etapa, próximas ações vencidas ou até amanhã, contas sem contato há mais de 30 dias, vendas e contatos recentes, tudo com link "Abrir no CRM". Aparece para o administrador e para quem tem conta vinculada no CRM.
+- **Check-in:** para quem tem conta vinculada no CRM, entram os contatos e as vendas registrados desde o último check-in e as próximas ações das contas pelas quais a pessoa é responsável.
+- **Configuração no Chibata:**
+  - `CRM_API_URL`: endereço do CRM;
+  - `CRM_API_TOKEN`: igual ao `CHIBATA_API_TOKEN` configurado no CRM;
+  - `CRM_BYPASS_SECRET`: necessário se o CRM tiver a proteção de deploy da Vercel ligada.
+
+  Depois, em `/admin/crm`, vincule os usuários do CRM às pessoas do Chibata.
+
 ### Perfis de acesso (sempre verificados no servidor)
 
 - **Administrador (CEO):** vê tudo, gerencia pessoas, áreas, indicadores, pesos e projetos, edita check-ins fora do prazo, exclui check-ins e reabre revisões.

@@ -13,8 +13,10 @@ import { indicatorsForUser } from "@/lib/services/indicators";
 import { after } from "next/server";
 import { refreshFromAsana } from "@/app/actions/asana";
 import { asanaEnabled, syncIfStale } from "@/lib/asana/sync";
-import { parseAutoRule } from "@/lib/domain/autoIndicators";
+import { isCrmRule, parseAutoRule } from "@/lib/domain/autoIndicators";
 import { checkInSuggestions } from "@/lib/services/checkinSuggestions";
+import { crmConfigured } from "@/lib/crm/client";
+import { syncCrmIfStale } from "@/lib/crm/sync";
 
 export const metadata = { title: "Check-in" };
 
@@ -56,7 +58,8 @@ export default async function CheckInPage({ searchParams }: { searchParams: Prom
   // Pré-preenchimento a partir das tarefas (Asana/app), só para o check-in de hoje ainda não feito
   const integration = await asanaEnabled();
   if (integration) after(() => syncIfStale(10).catch(() => null));
-  const suggestions = !existing && date === today ? await checkInSuggestions(userId, today, previous?.createdAt ?? null) : null;
+  if (crmConfigured() && target.crmEmails.length > 0) after(() => syncCrmIfStale(10).catch(() => null));
+  const suggestions = !existing && date === today ? await checkInSuggestions(userId, today, previous?.createdAt ?? null, target.crmEmails.length ? [target.email, ...target.crmEmails] : []) : null;
   const defaultYesterday = existing?.yesterday ?? (suggestions?.done.length ? suggestions.done.join("\n") : (previous?.today ?? ""));
   const defaultToday = existing?.today ?? (suggestions?.plan.length ? suggestions.plan.join("\n") : "");
   const autoIds = new Set(indicators.filter((i) => parseAutoRule(i.autoRule)).map((i) => i.id));
@@ -117,7 +120,7 @@ export default async function CheckInPage({ searchParams }: { searchParams: Prom
               <div>
                 <label className="label" htmlFor="today">O que será feito {date === today ? "hoje" : "neste dia"}?</label>
                 <textarea id="today" name="today" rows={3} required maxLength={2000} defaultValue={defaultToday} className="input" placeholder="Prioridades do dia" />
-                {!existing && suggestions?.plan.length ? <p className="hint">Sugestão a partir das suas tarefas em andamento e com prazo até amanhã.</p> : null}
+                {!existing && suggestions?.plan.length ? <p className="hint">Sugestão a partir das suas tarefas em andamento, com prazo até amanhã e das próximas ações do CRM.</p> : null}
               </div>
               <div>
                 <label className="label" htmlFor="blockers">Bloqueios ou pedidos de ajuda <span className="font-normal text-slate-400">(opcional)</span></label>
@@ -165,7 +168,7 @@ export default async function CheckInPage({ searchParams }: { searchParams: Prom
                         <span>{(entryOf(ind.id) ?? 0).toLocaleString("pt-BR")}</span>
                         <Badge tone="blue">automático</Badge>
                       </div>
-                      <p className="hint">Calculado pelas tarefas{integration ? " do Asana" : ""} · meta {PERIOD_LABEL[ind.targetPeriod]}: {ind.targetValue.toLocaleString("pt-BR")}</p>
+                      <p className="hint">{isCrmRule(parseAutoRule(ind.autoRule)!.type) ? "Calculado pelo CRM" : `Calculado pelas tarefas${integration ? " do Asana" : ""}`} · meta {PERIOD_LABEL[ind.targetPeriod]}: {ind.targetValue.toLocaleString("pt-BR")}</p>
                     </div>
                   ) : (
                   <div key={ind.id}>
