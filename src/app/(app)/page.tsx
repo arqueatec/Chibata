@@ -10,6 +10,9 @@ import { dateToKey, formatDay, formatPeriod, formatShortDay, isBusinessDay, toda
 import { scoreDelta } from "@/lib/domain/scoring";
 import { formatScore } from "@/lib/format";
 import { teamDashboard } from "@/lib/services/dashboard";
+import { grantAlerts } from "@/lib/domain/grants";
+import { canSeeGrants } from "@/lib/grants/access";
+import { loadGrants } from "@/lib/grants/load";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +42,9 @@ export default async function HomePage() {
     }),
   ]);
 
+  // Prazos de editais (submissão, metas, relatórios, parcelas) para a equipe de editais
+  const grantsAlerts = canSeeGrants(access) ? grantAlerts(await loadGrants(), today) : [];
+
   const team = dash.people.filter((p) => leads && (access.isAdmin || p.id !== access.user.id));
   const doneToday = team.filter((p) => p.checkedInToday).length;
 
@@ -58,6 +64,21 @@ export default async function HomePage() {
         <Stat label="Meta atingida (semana)" value={`${formatScore(me?.week?.goalAttainment)}%`} hint={`Mês: ${formatScore(me?.month?.goalAttainment)}%`} href={`/pessoas/${access.user.id}`} />
         <Stat label="Minhas tarefas abertas" value={myTasks.length} hint={`${myTasks.filter((t) => t.dueDate && dateToKey(t.dueDate) < today).length} atrasada(s)`} href="/tarefas" />
       </div>
+
+      {grantsAlerts.length > 0 && (
+        <Card title="Prazos de editais" actions={<Link href="/editais" className="link text-sm">Ver editais</Link>}>
+          <ul className="space-y-2">
+            {grantsAlerts.slice(0, 6).map((a, i) => (
+              <li key={i}>
+                <Link href={a.href} className={`flex items-start gap-2 rounded-lg p-2 text-sm hover:opacity-90 ${a.severity === "high" ? "bg-red-50 text-red-900" : "bg-amber-50 text-amber-900"}`}>
+                  <span aria-hidden>{a.severity === "high" ? "⛔" : "⚠"}</span>
+                  {a.text}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {leads && (
         <>

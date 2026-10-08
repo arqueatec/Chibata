@@ -1,7 +1,7 @@
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { computeAutoValue, isCrmRule, parseAutoRule, type AutoCrmEvent, type AutoFieldChange, type AutoTask } from "@/lib/domain/autoIndicators";
+import { computeAutoValue, isCrmRule, isGrantRule, parseAutoRule, type AutoCrmEvent, type AutoGrantEvent, type AutoFieldChange, type AutoTask } from "@/lib/domain/autoIndicators";
 import { addDays, eachDay, keyToDate, maxKey, todayKey } from "@/lib/domain/dates";
 
 /** Dia (fuso do app) de um instante. */
@@ -30,7 +30,8 @@ export async function recomputeAutoIndicators(opts: { userIds?: string[]; days?:
   });
   const userIds = users.map((u) => u.id);
   const needsCrm = indicators.some((i) => isCrmRule(i.rule!.type));
-  const [tasks, changes, crmRows] = await Promise.all([
+  const needsGrants = indicators.some((i) => isGrantRule(i.rule!.type));
+  const [tasks, changes, crmRows, grantRows] = await Promise.all([
     prisma.task.findMany({
       where: { assigneeId: { in: userIds } },
       select: { assigneeId: true, projectId: true, title: true, createdAt: true, dueDate: true, completedAt: true, status: true, asanaFields: true },
@@ -40,7 +41,23 @@ export async function recomputeAutoIndicators(opts: { userIds?: string[]; days?:
       include: { task: { select: { assigneeId: true, projectId: true, title: true } } },
     }),
     needsCrm ? prisma.crmEvent.findMany({ where: { day: { gte: keyToDate(from) } } }) : Promise.resolve([]),
+    needsGrants
+      ? prisma.grantStatusChange.findMany({ orderBy: [{ day: "asc" }, { at: "asc" }], include: { grant: { select: { ownerId: true, approvedAmount: true } } } })
+      : Promise.resolve([]),
   ]);
+  // Só a primeira vez que cada edital chegou a cada etapa (idas e vindas não contam em dobro)
+  const firstReach = new Set<string>();
+  const grantEvents: AutoGrantEvent[] = grantRows.filter((g) => {
+    const k = `${g.grantId}:${g.toStatus}`;
+    if (firstReach.has(k)) return false;
+    firstReach.add(k);
+    return true;
+  }).map((g) => ({
+    toStatus: g.toStatus,
+    day: g.day.toISOString().slice(0, 10),
+    ownerId: g.grant.ownerId,
+    approvedAmount: g.grant.approvedAmount,
+  }));
   const crmEvents: AutoCrmEvent[] = crmRows.map((e) => ({
     type: e.type as AutoCrmEvent["type"],
     day: e.day.toISOString().slice(0, 10),
@@ -87,6 +104,7 @@ export async function recomputeAutoIndicators(opts: { userIds?: string[]; days?:
           changes: autoChanges,
           crmEvents,
           crmEmails: [u.email, ...u.crmEmails],
+          grantEvents,
         });
         if (value === null) continue; // não calculável para este dia: mantém o que existe
         const prev = existing.find((e) => e.date.toISOString().slice(0, 10) === day);

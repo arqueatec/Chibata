@@ -35,7 +35,9 @@ export const ENTITY_LABEL: Record<string, string> = {
   Area: "Área",
   Project: "Projeto/cliente",
   Export: "Exportação de dados",
-  Integration: "Integração (Asana)",
+  Integration: "Integração",
+  Grant: "Edital",
+  GrantItem: "Item de edital",
 };
 
 const nf = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
