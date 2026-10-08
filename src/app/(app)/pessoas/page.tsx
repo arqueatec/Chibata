@@ -27,7 +27,7 @@ export default async function PeoplePage() {
       <PageHeader title="Pessoas" subtitle={access.isAdmin ? "Toda a equipe" : "Você e sua equipe"} actions={access.isAdmin && <Link href="/admin/pessoas" className="btn-secondary btn-sm">Gerenciar pessoas</Link>} />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {people.map((p) => (
-          <Link key={p.id} href={`/pessoas/${p.id}`} className="card block transition hover:border-brand-500">
+          <Link key={p.id} href={`/pessoas/${p.id}`} className="card block transition hover:border-accent-600">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <div className="font-semibold">{p.name} {!p.active && <Badge>inativo</Badge>}</div>

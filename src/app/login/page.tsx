@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
 import { loginWithPassword, requestMagicLink } from "@/app/actions/auth";
@@ -9,10 +10,11 @@ export default async function LoginPage() {
   if (await getCurrentUser()) redirect("/");
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-4 py-10">
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-gradient-to-b from-brand-50 to-slate-50" />
       <div className="mb-6 text-center">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-600 text-xl font-bold text-white">A</div>
-        <h1 className="text-xl font-bold">ArqueaTec · Desempenho</h1>
-        <p className="text-sm text-slate-500">Acompanhamento diário da equipe</p>
+        <Image src="/logo-arqueatec.png" alt="ArqueaTec" width={224} height={82} priority className="mx-auto mb-4 h-auto w-56" />
+        <h1 className="text-xl font-bold text-brand-600">Acompanhamento de desempenho</h1>
+        <p className="text-sm text-slate-500">Check-in, metas e indicadores da equipe</p>
       </div>
       <div className="card space-y-6">
         <ActionForm action={loginWithPassword}>

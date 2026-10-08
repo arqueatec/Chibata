@@ -131,8 +131,8 @@ function PersonView({ perf, personId, series, label, asOf, kind }: { perf: Perf;
         <TrendChart
           labels={series.map(label)}
           series={[
-            { name: "Nota", color: "#17706f", values: results.map((r) => r?.score ?? null) },
-            { name: "% da meta", color: "#6366f1", values: results.map((r) => r?.goalAttainment ?? null), dashed: true },
+            { name: "Nota", color: "#2e3d44", values: results.map((r) => r?.score ?? null) },
+            { name: "% da meta", color: "#2a8a91", values: results.map((r) => r?.goalAttainment ?? null), dashed: true },
             { name: "Regularidade de check-in", color: "#f59e0b", values: results.map((r) => r?.checkinRate ?? null), dashed: true },
           ]}
         />
@@ -163,7 +163,7 @@ function TeamView({
     const prev = scoreUser(perf, u.id, prevPeriod, asOf);
     return { u, cur, prev, delta: scoreDelta(cur?.score ?? null, prev?.score ?? null) };
   });
-  const palette = ["#17706f", "#6366f1", "#f59e0b", "#ef4444", "#0ea5e9", "#a855f7", "#84cc16", "#64748b"];
+  const palette = ["#2e3d44", "#2a8a91", "#f59e0b", "#ef4444", "#6366f1", "#a855f7", "#84cc16", "#64748b"];
 
   const byArea = new Map<string, typeof rows>();
   for (const r of rows) {

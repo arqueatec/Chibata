@@ -56,7 +56,7 @@ export async function buildWorkbook(sheets: SheetSpec[], meta: { title: string; 
     for (const r of s.rows) ws.addRow(r);
     const header = ws.getRow(1);
     header.font = { bold: true, color: { argb: "FFFFFFFF" } };
-    header.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF17706F" } };
+    header.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2E3D44" } };
     header.alignment = { vertical: "middle" };
     s.columns.forEach((c, i) => {
       if (c.wrap) ws.getColumn(i + 1).alignment = { wrapText: true, vertical: "top" };

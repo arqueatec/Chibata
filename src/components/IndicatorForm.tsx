@@ -100,7 +100,7 @@ export function IndicatorForm({
           </label>
         </div>
         <details className="rounded-lg border border-slate-200 p-3" open={!!rule}>
-          <summary className="cursor-pointer text-sm font-medium">Preenchimento: {rule ? <span className="text-brand-700">automático</span> : "manual no check-in"}</summary>
+          <summary className="cursor-pointer text-sm font-medium">Preenchimento: {rule ? <span className="text-accent-700">automático</span> : "manual no check-in"}</summary>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className="label">Regra</label>
