@@ -51,60 +51,59 @@ async function doSync(opts: { actorId: string | null; trigger: string }): Promis
     const byId = new Map(data.accounts.map((a) => [a.id, a]));
     const now = new Date();
 
-    await prisma.$transaction(async (tx) => {
-      for (const a of data.accounts) {
-        const row = {
-          companyName: a.companyName,
-          segment: a.segment,
-          city: a.city,
-          state: a.state,
-          status: a.status,
-          priority: a.priority,
-          ownerEmail: a.ownerEmail?.toLowerCase() ?? null,
-          nextAction: a.nextAction,
-          nextActionDate: a.nextActionDate ? keyToDate(a.nextActionDate.slice(0, 10)) : null,
-          lastContactDate: a.lastContactDate ? new Date(a.lastContactDate) : null,
-          proposedVolumeL: a.proposedVolumeL,
-          purchasedVolumeL: a.purchasedVolumeL,
-          revenueTotal: a.revenueTotal,
-          crmCreatedAt: new Date(a.createdAt),
-          syncedAt: now,
-        };
-        await tx.crmAccount.upsert({ where: { id: a.id }, create: { id: a.id, ...row }, update: row });
-      }
-      // contas excluídas no CRM
-      await tx.crmAccount.deleteMany({ where: { id: { notIn: data.accounts.map((a) => a.id) } } });
+    const accounts: Prisma.CrmAccountCreateManyInput[] = data.accounts.map((a) => ({
+      id: a.id,
+      companyName: a.companyName,
+      segment: a.segment,
+      city: a.city,
+      state: a.state,
+      status: a.status,
+      priority: a.priority,
+      ownerEmail: a.ownerEmail?.toLowerCase() ?? null,
+      nextAction: a.nextAction,
+      nextActionDate: a.nextActionDate ? keyToDate(a.nextActionDate.slice(0, 10)) : null,
+      lastContactDate: a.lastContactDate ? new Date(a.lastContactDate) : null,
+      proposedVolumeL: a.proposedVolumeL,
+      purchasedVolumeL: a.purchasedVolumeL,
+      revenueTotal: a.revenueTotal,
+      crmCreatedAt: new Date(a.createdAt),
+      syncedAt: now,
+    }));
 
-      type Ev = Prisma.CrmEventCreateManyInput;
-      const name = (id: number) => byId.get(id)?.companyName ?? `Conta #${id}`;
-      const seg = (id: number) => byId.get(id)?.segment ?? "";
-      const events: Ev[] = [
-        ...data.accounts
-          .filter((a) => dayOf(a.createdAt) >= since)
-          .map((a) => ({ id: `ACCOUNT_CREATED:${a.id}`, type: "ACCOUNT_CREATED", accountId: a.id, accountName: a.companyName, segment: a.segment, day: keyToDate(dayOf(a.createdAt)), at: new Date(a.createdAt), userEmail: a.ownerEmail?.toLowerCase() ?? null })),
-        ...data.contacts.map((c) => ({
-          id: `CONTACT:${c.id}`, type: "CONTACT", accountId: c.accountId, accountName: name(c.accountId), segment: seg(c.accountId),
-          // data do contato é um dia de calendário (sem hora) no CRM
-          day: keyToDate(c.date.slice(0, 10)), at: new Date(c.date), userEmail: c.teamMemberEmail?.toLowerCase() ?? null,
-          text: `${c.channel}: ${c.subject}`.slice(0, 500),
-        })),
-        ...data.statusChanges.map((s) => ({
-          id: `STATUS:${s.id}`, type: "STATUS", accountId: s.accountId, accountName: name(s.accountId), segment: seg(s.accountId),
-          day: keyToDate(dayOf(s.changedAt)), at: new Date(s.changedAt), userEmail: s.userEmail?.toLowerCase() ?? null, toStatus: s.toStatus,
-        })),
-        ...data.sales.map((s) => ({
-          id: `SALE:${s.id}`, type: "SALE", accountId: s.accountId, accountName: name(s.accountId), segment: seg(s.accountId),
-          day: keyToDate(s.date.slice(0, 10)), at: new Date(s.date),
-          // venda atribuída a quem registrou ou, na falta, ao responsável pela conta
-          userEmail: (s.createdByEmail ?? byId.get(s.accountId)?.ownerEmail ?? null)?.toLowerCase() ?? null,
-          volumeL: s.volumeL, amount: s.amount,
-        })),
-      ];
-      // A janela é substituída inteira: o que foi apagado ou corrigido no CRM some aqui também
-      await tx.crmEvent.deleteMany({ where: { day: { gte: keyToDate(since) } } });
-      if (events.length) await tx.crmEvent.createMany({ data: events, skipDuplicates: true });
-      report.events = events.length;
-    });
+    const name = (id: number) => byId.get(id)?.companyName ?? `Conta #${id}`;
+    const seg = (id: number) => byId.get(id)?.segment ?? "";
+    const events: Prisma.CrmEventCreateManyInput[] = [
+      ...data.accounts
+        .filter((a) => dayOf(a.createdAt) >= since)
+        .map((a) => ({ id: `ACCOUNT_CREATED:${a.id}`, type: "ACCOUNT_CREATED", accountId: a.id, accountName: a.companyName, segment: a.segment, day: keyToDate(dayOf(a.createdAt)), at: new Date(a.createdAt), userEmail: a.ownerEmail?.toLowerCase() ?? null })),
+      ...data.contacts.map((c) => ({
+        id: `CONTACT:${c.id}`, type: "CONTACT", accountId: c.accountId, accountName: name(c.accountId), segment: seg(c.accountId),
+        // data do contato é um dia de calendário (sem hora) no CRM
+        day: keyToDate(c.date.slice(0, 10)), at: new Date(c.date), userEmail: c.teamMemberEmail?.toLowerCase() ?? null,
+        text: `${c.channel}: ${c.subject}`.slice(0, 500),
+      })),
+      ...data.statusChanges.map((s) => ({
+        id: `STATUS:${s.id}`, type: "STATUS", accountId: s.accountId, accountName: name(s.accountId), segment: seg(s.accountId),
+        day: keyToDate(dayOf(s.changedAt)), at: new Date(s.changedAt), userEmail: s.userEmail?.toLowerCase() ?? null, toStatus: s.toStatus,
+      })),
+      ...data.sales.map((s) => ({
+        id: `SALE:${s.id}`, type: "SALE", accountId: s.accountId, accountName: name(s.accountId), segment: seg(s.accountId),
+        day: keyToDate(s.date.slice(0, 10)), at: new Date(s.date),
+        // venda atribuída a quem registrou ou, na falta, ao responsável pela conta
+        userEmail: (s.createdByEmail ?? byId.get(s.accountId)?.ownerEmail ?? null)?.toLowerCase() ?? null,
+        volumeL: s.volumeL, amount: s.amount,
+      })),
+    ];
+
+    // Substituição em lote numa única transação (sem ida e volta por linha, que estourava o tempo limite):
+    // a foto das contas é trocada inteira e a janela de eventos também, então o que foi apagado ou corrigido no CRM some aqui.
+    await prisma.$transaction([
+      prisma.crmAccount.deleteMany(),
+      prisma.crmAccount.createMany({ data: accounts, skipDuplicates: true }),
+      prisma.crmEvent.deleteMany({ where: { day: { gte: keyToDate(since) } } }),
+      prisma.crmEvent.createMany({ data: events, skipDuplicates: true }),
+    ]);
+    report.events = events.length;
 
     report.accounts = data.accounts.length;
     report.crmUsers = data.users.map((u) => ({ name: u.name, email: u.email.toLowerCase() }));
