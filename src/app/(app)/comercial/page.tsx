@@ -52,6 +52,9 @@ export default async function CommercialPage() {
   const sales = monthEvents.filter((e) => e.type === "SALE");
   const liters = sales.reduce((s, e) => s + (e.volumeL ?? 0), 0);
   const revenue = sales.reduce((s, e) => s + (e.amount ?? 0), 0);
+  // Totais digitados nas contas do CRM (sem data): acumulado desde o início
+  const litersTotal = accounts.reduce((s, a) => s + a.purchasedVolumeL, 0);
+  const revenueTotal = accounts.reduce((s, a) => s + a.revenueTotal, 0);
   const contactsMonth = monthEvents.filter((e) => e.type === "CONTACT").length;
   const createdMonth = monthEvents.filter((e) => e.type === "ACCOUNT_CREATED").length;
 
@@ -78,8 +81,8 @@ export default async function CommercialPage() {
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Litros vendidos no mês" value={`${formatNumber(liters)} L`} hint={`${sales.length} venda(s)`} />
-        <Stat label="Receita no mês" value={formatValue(revenue, "CURRENCY")} />
+        <Stat label="Litros vendidos no mês" value={`${formatNumber(liters)} L`} hint={`${sales.length} venda(s) · acumulado ${formatNumber(litersTotal)} L`} />
+        <Stat label="Receita no mês" value={formatValue(revenue, "CURRENCY")} hint={`acumulado ${formatValue(revenueTotal, "CURRENCY")}`} />
         <Stat label="Contas no funil" value={active.length} hint={`${clients.length} cliente(s) · ${createdMonth} nova(s) no mês`} />
         <Stat label="Contatos no mês" value={contactsMonth} />
       </div>
