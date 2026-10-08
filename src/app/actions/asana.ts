@@ -37,6 +37,25 @@ export const saveAsanaProjects = safeAction(async (_prev: ActionResult, fd: Form
   return { ok: true, message: `${projectGids.length} projeto(s) selecionado(s). Clique em “Sincronizar agora” para importar.` };
 });
 
+export const saveAsanaWorkspace = safeAction(async (_prev: ActionResult, fd: FormData) => {
+  const access = await requireAdmin();
+  const workspaceGid = gid.parse(fd.get("workspaceGid"));
+  const before = await getAsanaSettings();
+  if (before.workspaceGid === workspaceGid) return { ok: true, message: "Este espaço de trabalho já está em uso." };
+  // Projetos pertencem a um espaço: ao trocar, a seleção anterior deixa de valer
+  await saveAsanaSettings({ workspaceGid, projectGids: [] });
+  await audit({
+    actorId: access.user.id,
+    entityType: "Integration",
+    entityId: "asana",
+    action: "UPDATE",
+    before: { espaco: before.workspaceGid ?? null },
+    after: { espaco: workspaceGid },
+  });
+  revalidatePath("/admin/asana");
+  return { ok: true, message: "Espaço de trabalho atualizado. Agora escolha os projetos abaixo." };
+});
+
 export const saveAsanaPeople = safeAction(async (_prev: ActionResult, fd: FormData) => {
   const access = await requireAdmin();
   const raw = formToObject(fd);
