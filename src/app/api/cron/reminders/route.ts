@@ -14,7 +14,7 @@ function authorized(req: NextRequest) {
   return header.length === expected.length && timingSafeEqual(Buffer.from(header), Buffer.from(expected));
 }
 
-/** Lembrete diário de check-in (Vercel Cron). Envia só para quem optou e ainda não registrou o dia. */
+/** Lembrete diário de check-in no fim do dia, 17h em Brasília (Vercel Cron). Envia só para quem optou e ainda não registrou o dia. */
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   const today = todayKey();
@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
     const ok = await sendEmail({
       to: u.email,
       subject: "Lembrete: check-in de hoje",
-      text: `Olá, ${u.name}! Seu check-in de hoje ainda está pendente. Leva menos de 3 minutos: ${appUrl()}/checkin\n\nPara parar de receber, desative em Meus dados.`,
-      html: `<p>Olá, ${u.name}!</p><p>Seu check-in de hoje ainda está pendente. Leva menos de 3 minutos.</p><p><a href="${appUrl()}/checkin">Fazer check-in</a></p><p style="color:#666;font-size:12px">Para parar de receber, desative em “Meus dados”.</p>`,
+      text: `Olá, ${u.name}! Antes de encerrar o dia, registre o seu check-in: o que você fez hoje e as entregas do dia. Leva menos de 3 minutos: ${appUrl()}/checkin\n\nPara parar de receber, desative em Meus dados.`,
+      html: `<p>Olá, ${u.name}!</p><p>Antes de encerrar o dia, registre o seu check-in: o que você fez hoje e as entregas do dia. Leva menos de 3 minutos.</p><p><a href="${appUrl()}/checkin">Fazer check-in</a></p><p style="color:#666;font-size:12px">Para parar de receber, desative em “Meus dados”.</p>`,
     });
     if (ok) sent++;
   }

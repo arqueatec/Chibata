@@ -117,6 +117,15 @@ export function IndicatorForm({
               </p>
             </div>
             <div>
+              <label className="label">Tarefas concluídas: quais contar</label>
+              <select name="autoTaskOrigin" defaultValue={rule?.taskOrigin ?? "all"} className="input">
+                <option value="all">Todas</option>
+                <option value="planned">Só as planejadas</option>
+                <option value="unplanned">Só as demandas extras (do check-in)</option>
+              </select>
+              <p className="hint">Entregas contestadas pelo líder ou sem a evidência exigida não contam.</p>
+            </div>
+            <div>
               <label className="label">Só tarefas cujo título contém</label>
               <input name="autoName" defaultValue={rule?.nameContains ?? ""} placeholder="ex.: Ata" className="input" />
             </div>

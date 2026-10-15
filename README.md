@@ -10,7 +10,7 @@ Aplicativo de acompanhamento diário de desempenho da equipe ArqueaTec: check-in
 
 | Área | O que faz |
 |---|---|
-| **Check-in diário** (`/checkin`) | O que foi feito, o que será feito, bloqueios/pedido de ajuda, autoavaliação 1–5 e lançamento dos indicadores do dia numa única tela pensada para o celular. O campo "feito" já vem preenchido com o plano do check-in anterior. Registro retroativo de até **2 dias úteis**; depois disso, só o administrador edita. |
+| **Check-in diário** (`/checkin`) | Feito no fim do dia, sobre o próprio dia: o que a pessoa fez, as **entregas do dia** (tarefas planejadas concluídas e demandas extras que surgiram e já foram feitas, com link de evidência), bloqueios/pedido de ajuda, autoavaliação 1–5 e indicadores do dia, numa única tela pensada para o celular. Registro retroativo de até **2 dias úteis**; depois disso, só o administrador edita. |
 | **Indicadores por área** (`/admin/indicadores`) | Meta diária, semanal ou mensal, peso, unidade (quantidade, R$, %, horas), sentido (*maior é melhor* ou *menor é melhor*, como "não conformidades") e consolidação (*soma* ou *último valor*, para estoques como "valor em pipeline"). Áreas podem permitir **indicadores pessoais** (usado pelo CEO em "Meus dados"). |
 | **Metas e tarefas** (`/tarefas`) | Responsável, prazo, status (a fazer, em andamento, bloqueada, concluída), motivo do bloqueio, vínculo com projeto ou cliente e com uma meta-mãe (mostra o progresso das tarefas da meta). Tarefas atrasadas ou bloqueadas aparecem em destaque. |
 | **Dashboard** (`/`) | Para o CEO (e para a coordenadora, restrito à equipe dela): quem já fez check-in, bloqueios abertos (com botão "Resolvido"), tarefas atrasadas, progresso por pessoa e por área, e alertas. Todos também veem "Meu dia". |
@@ -30,7 +30,7 @@ Aplicativo de acompanhamento diário de desempenho da equipe ArqueaTec: check-in
   - O responsável é identificado pela conta do Asana vinculada a cada pessoa.
   - Metas que já existem no app com o mesmo título e o mesmo responsável são **vinculadas**, sem duplicar.
   - As tarefas de exemplo do Asana são ignoradas.
-- **Check-in pré-preenchido:** "o que foi feito" traz as tarefas concluídas desde o último check-in; "o que será feito" traz as tarefas em andamento e as que vencem até amanhã. As tarefas bloqueadas aparecem como aviso.
+- **Check-in pré-preenchido:** "o que você fez" traz as tarefas concluídas no dia. As tarefas bloqueadas aparecem como aviso.
 - **Indicadores automáticos:** cada indicador pode ter uma regra de preenchimento. As regras são:
   - tarefas concluídas, criadas ou atrasadas, com filtro por projeto e por texto no título;
   - soma de um campo numérico, como "Valor estimado";
@@ -54,13 +54,21 @@ O SistemArquea **lê** o CRM pela API `GET /api/integracao/chibata` do próprio 
 
   As regras podem contar a equipe comercial inteira ou só o que a pessoa fez.
 - **Painel Comercial:** litros e receita do mês, funil por etapa, próximas ações vencidas ou até amanhã, contas sem contato há mais de 30 dias, vendas e contatos recentes, tudo com link "Abrir no CRM". Aparece para o administrador e para quem tem conta vinculada no CRM.
-- **Check-in:** para quem tem conta vinculada no CRM, entram os contatos e as vendas registrados desde o último check-in e as próximas ações das contas pelas quais a pessoa é responsável.
+- **Check-in:** para quem tem conta vinculada no CRM, entram os contatos e as vendas registrados no dia.
 - **Configuração no SistemArquea:**
   - `CRM_API_URL`: endereço do CRM;
   - `CRM_API_TOKEN`: igual ao `CHIBATA_API_TOKEN` configurado no CRM;
   - `CRM_BYPASS_SECRET`: necessário se o CRM tiver a proteção de deploy da Vercel ligada.
 
   Depois, em `/admin/crm`, vincule os usuários do CRM às pessoas do SistemArquea.
+
+### Entregas, demandas extras e evidências
+
+- **Entregas do dia (check-in):** a pessoa marca as tarefas planejadas que concluiu e registra as **demandas extras** (o que surgiu e já foi feito). Cada demanda extra vira uma tarefa concluída no dia, marcada como "não planejada"; se o projeto escolhido for do Asana, ela também é criada lá, já concluída.
+- **Evidência:** link colado no SistemArquea ou **anexo na tarefa do Asana** (a sincronização lê os anexos das entregas dos últimos 35 dias). O líder pode marcar uma tarefa como **"exige evidência"**: ela só conta na nota com evidência. Metas e relatórios de edital criados como tarefa já exigem evidência.
+- **Contestação:** o líder da pessoa (ou o administrador) pode contestar uma entrega, com justificativa, em até 2 dias úteis após a conclusão. Enquanto contestada, ela não conta na nota; o líder retira a contestação quando a situação é resolvida. Tudo fica na auditoria.
+- **Na nota:** a regra automática "Tarefas concluídas no dia (entregas)" pode contar todas, só as planejadas ou só as demandas extras. Sugestão: um indicador de entregas planejadas com peso maior e um de demandas extras com peso menor (a meta limita o bônus).
+- **Página da pessoa:** entregas dos últimos 30 dias, quantas contam na nota, quantas foram extras e a taxa de evidência.
 
 ### Editais (`/editais`)
 
@@ -201,7 +209,7 @@ Em "Entrar", informe o e-mail e clique em "Enviar link de acesso". Com `RESEND_A
 4. **Deploy:** a Vercel executa o script `vercel-build` (`prisma generate && prisma migrate deploy && next build`), então as migrações são aplicadas a cada deploy.
 5. **Primeiros dados:** abra `https://<seu-app>/setup` (a página só existe enquanto o banco não tem nenhuma pessoa). Informe o valor de `CRON_SECRET` como código de configuração, escolha **Dados de demonstração** (as 6 pessoas e 60 dias de dados) ou **Só o administrador**, e defina a senha inicial. Alternativa pela sua máquina: `DATABASE_URL="<url-direta>" DATABASE_URL_UNPOOLED="<url-direta>" npm run db:seed`.
 6. **Asana (opcional):** adicione `ASANA_TOKEN` nas variáveis de ambiente e configure em `/admin/asana`. O `vercel.json` agenda a sincronização diária em `/api/cron/asana`, às 10:45 UTC.
-7. **Lembretes:** `vercel.json` agenda `/api/cron/reminders` em dias úteis às 12:00 UTC (9:00 em Brasília). A Vercel envia `Authorization: Bearer $CRON_SECRET` automaticamente. O e-mail só vai para quem ativou os lembretes em "Meus dados" e ainda não fez o check-in do dia.
+7. **Lembretes:** `vercel.json` agenda `/api/cron/reminders` em dias úteis às 20:00 UTC (17:00 em Brasília, fim do expediente). A Vercel envia `Authorization: Bearer $CRON_SECRET` automaticamente. O e-mail só vai para quem ativou os lembretes em "Meus dados" e ainda não fez o check-in do dia.
 
 ---
 

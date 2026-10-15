@@ -7,8 +7,9 @@ import { prisma } from "@/lib/db";
 import { formToObject, safeAction, UserFacingError, type ActionResult } from "@/lib/actions";
 import { AuthorizationError, requireActionAccess } from "@/lib/authz";
 import { audit, diff } from "@/lib/audit";
-import { canAssignTask, canDeleteTask, canEditTask } from "@/lib/domain/access";
-import { keyToDate } from "@/lib/domain/dates";
+import { canAssignTask, canDeleteTask, canEditTask, canGiveFeedback } from "@/lib/domain/access";
+import { keyToDate, todayKey } from "@/lib/domain/dates";
+import { canStillContest, CONTEST_WINDOW_BUSINESS_DAYS, normalizeEvidenceUrl } from "@/lib/domain/deliveries";
 import { idField, optionalDayKey, optionalId, optionalText, requiredText } from "@/lib/validation";
 import { setAsanaCompleted } from "@/lib/asana/writeback";
 import { AsanaError } from "@/lib/asana/client";
@@ -153,4 +154,84 @@ export const deleteTask = safeAction(async (_prev: ActionResult, fd: FormData) =
   });
   revalidatePath("/", "layout");
   redirect("/tarefas");
+});
+
+/** Salva (ou remove) o link de evidência de uma entrega. */
+export const setTaskEvidence = safeAction(async (_prev: ActionResult, fd: FormData) => {
+  const access = await requireActionAccess();
+  const id = idField.parse(fd.get("id"));
+  const task = await prisma.task.findUnique({ where: { id } });
+  if (!task || !canEditTask(access.ctx, task)) throw new AuthorizationError();
+  let evidenceUrl: string | null;
+  try {
+    evidenceUrl = normalizeEvidenceUrl(String(fd.get("evidenceUrl") ?? ""));
+  } catch (e) {
+    throw new UserFacingError((e as Error).message);
+  }
+  if (evidenceUrl === task.evidenceUrl) return { ok: true, message: "Nada a alterar." };
+  await prisma.$transaction(async (tx) => {
+    await tx.task.update({ where: { id }, data: { evidenceUrl } });
+    await audit({ actorId: access.user.id, subjectUserId: task.assigneeId, entityType: "Task", entityId: id, action: "UPDATE", before: { title: task.title, evidenceUrl: task.evidenceUrl }, after: { evidenceUrl } }, tx);
+  });
+  await recomputeAutoIndicators({ userIds: [task.assigneeId] });
+  revalidatePath("/", "layout");
+  return { ok: true, message: evidenceUrl ? "Evidência salva." : "Evidência removida." };
+});
+
+/** Líder contesta uma entrega (até 2 dias úteis após a conclusão): enquanto contestada, não conta na nota. */
+export const contestTask = safeAction(async (_prev: ActionResult, fd: FormData) => {
+  const access = await requireActionAccess();
+  const id = idField.parse(fd.get("id"));
+  const reason = requiredText(500, "Justificativa").parse(fd.get("reason") ?? "");
+  const task = await prisma.task.findUnique({ where: { id } });
+  if (!task) throw new UserFacingError("Tarefa não encontrada.");
+  if (!canGiveFeedback(access.ctx, task.assigneeId)) throw new AuthorizationError("Só o líder da pessoa ou o administrador pode contestar uma entrega.");
+  if (task.status !== "DONE" || !task.completedAt) throw new UserFacingError("Só entregas concluídas podem ser contestadas.");
+  if (task.contestedAt) return { ok: true, message: "Esta entrega já está contestada." };
+  if (!access.isAdmin && !canStillContest(todayKey(task.completedAt), todayKey())) {
+    throw new UserFacingError(`O prazo para contestar (${CONTEST_WINDOW_BUSINESS_DAYS} dias úteis após a conclusão) já passou. Fale com o administrador.`);
+  }
+  const now = new Date();
+  await prisma.$transaction(async (tx) => {
+    await tx.task.update({ where: { id }, data: { contestedAt: now, contestedById: access.user.id, contestReason: reason } });
+    await audit({ actorId: access.user.id, subjectUserId: task.assigneeId, entityType: "Task", entityId: id, action: "UPDATE", before: { title: task.title, contestada: false }, after: { contestada: true }, reason }, tx);
+  });
+  await recomputeAutoIndicators({ userIds: [task.assigneeId] });
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Entrega contestada. Ela deixa de contar na nota até a contestação ser retirada." };
+});
+
+/** Retira a contestação (ex.: depois que a pessoa apresentou a evidência). */
+export const withdrawContest = safeAction(async (_prev: ActionResult, fd: FormData) => {
+  const access = await requireActionAccess();
+  const id = idField.parse(fd.get("id"));
+  const task = await prisma.task.findUnique({ where: { id } });
+  if (!task) throw new UserFacingError("Tarefa não encontrada.");
+  if (!canGiveFeedback(access.ctx, task.assigneeId)) throw new AuthorizationError();
+  if (!task.contestedAt) return { ok: true, message: "Esta entrega não está contestada." };
+  await prisma.$transaction(async (tx) => {
+    await tx.task.update({ where: { id }, data: { contestedAt: null, contestedById: null, contestReason: null } });
+    await audit({ actorId: access.user.id, subjectUserId: task.assigneeId, entityType: "Task", entityId: id, action: "RESOLVE", before: { title: task.title, contestada: true, motivo: task.contestReason }, after: { contestada: false } }, tx);
+  });
+  await recomputeAutoIndicators({ userIds: [task.assigneeId] });
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Contestação retirada. A entrega volta a contar." };
+});
+
+/** Marca se a tarefa exige evidência para contar na nota (líder da pessoa ou administrador). */
+export const setRequiresEvidence = safeAction(async (_prev: ActionResult, fd: FormData) => {
+  const access = await requireActionAccess();
+  const id = idField.parse(fd.get("id"));
+  const value = fd.get("value") === "1";
+  const task = await prisma.task.findUnique({ where: { id } });
+  if (!task) throw new UserFacingError("Tarefa não encontrada.");
+  if (!access.isAdmin && !canGiveFeedback(access.ctx, task.assigneeId)) throw new AuthorizationError("Só o líder da pessoa ou o administrador define se a tarefa exige evidência.");
+  if (task.requiresEvidence === value) return { ok: true, message: "Nada a alterar." };
+  await prisma.$transaction(async (tx) => {
+    await tx.task.update({ where: { id }, data: { requiresEvidence: value } });
+    await audit({ actorId: access.user.id, subjectUserId: task.assigneeId, entityType: "Task", entityId: id, action: "UPDATE", before: { title: task.title, exigeEvidencia: task.requiresEvidence }, after: { exigeEvidencia: value } }, tx);
+  });
+  await recomputeAutoIndicators({ userIds: [task.assigneeId] });
+  revalidatePath("/", "layout");
+  return { ok: true, message: value ? "A tarefa agora exige evidência para contar na nota." : "A tarefa não exige mais evidência." };
 });

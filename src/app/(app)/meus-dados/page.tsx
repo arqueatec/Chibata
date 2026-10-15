@@ -65,7 +65,7 @@ export default async function MyDataPage() {
         <ActionForm action={updatePreferences} className="space-y-3">
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="reminderEnabled" defaultChecked={full.reminderEnabled} className="h-5 w-5" />
-            Receber lembrete por e-mail nos dias úteis em que eu ainda não tiver feito o check-in
+            Receber lembrete por e-mail às 17h nos dias úteis em que eu ainda não tiver feito o check-in
           </label>
           {!emailConfigured() && <p className="hint">O envio de e-mails ainda não está configurado neste ambiente.</p>}
           <SubmitButton className="btn-secondary btn-sm">Salvar preferência</SubmitButton>

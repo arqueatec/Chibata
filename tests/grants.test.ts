@@ -58,7 +58,7 @@ describe("indicadores automáticos de editais", () => {
     { toStatus: "APPROVED", day: "2026-10-07", ownerId: "u1", approvedAmount: 50000 },
   ];
   const run = (type: "GRANTS_SUBMITTED" | "GRANTS_APPROVED" | "GRANTS_APPROVED_AMOUNT", scope: "all" | "person") =>
-    computeAutoValue({ rule: { type, scope, projectIds: [], segmentMode: "include" }, userId: "u1", day: today, today, tasks: [], changes: [], grantEvents: events });
+    computeAutoValue({ rule: { type, scope, projectIds: [], segmentMode: "include", taskOrigin: "all" }, userId: "u1", day: today, today, tasks: [], changes: [], grantEvents: events });
 
   it("conta toda a equipe ou só os editais da pessoa", () => {
     expect(run("GRANTS_SUBMITTED", "all")).toBe(2);

@@ -11,12 +11,14 @@ import { dateToKey, keyToDate, todayKey } from "@/lib/domain/dates";
 import { checkbox, dayKey, idField, optionalText, requiredText } from "@/lib/validation";
 import { indicatorsForUser } from "@/lib/services/indicators";
 import { parseAutoRule } from "@/lib/domain/autoIndicators";
+import { recordDeliveries } from "@/lib/services/deliveries";
 
 const schema = z.object({
   userId: idField,
   date: dayKey,
-  yesterday: requiredText(2000, "O que foi feito"),
-  today: requiredText(2000, "O que será feito"),
+  yesterday: requiredText(2000, "O que você fez"),
+  // Plano do dia: campo antigo, não é mais pedido (o check-in é feito no fim do dia, sobre o próprio dia)
+  today: optionalText(2000, "Plano").transform((v) => v ?? ""),
   blockers: optionalText(2000, "Bloqueios"),
   needsHelp: checkbox,
   selfScore: z.coerce
@@ -95,8 +97,28 @@ export const saveCheckIn = safeAction(async (_prev: ActionResult, fd: FormData) 
     }
   });
 
+  const deliveries = await recordDeliveries({
+    actorId,
+    userId: data.userId,
+    day: data.date,
+    today,
+    complete: fd.getAll("complete").map(String),
+    evidence: Object.fromEntries([...fd.entries()].filter(([k]) => k.startsWith("evidence_")).map(([k, v]) => [k.slice(9), String(v)])),
+    extras: fd.getAll("extraTitle").map((t, i) => ({
+      title: String(t),
+      projectId: String(fd.getAll("extraProject")[i] ?? ""),
+      evidenceUrl: String(fd.getAll("extraEvidence")[i] ?? ""),
+    })),
+  });
+
   revalidatePath("/", "layout");
-  return { ok: true, message: "Check-in salvo. Bom trabalho!" };
+  const parts = [
+    deliveries.completed ? `${deliveries.completed} tarefa(s) concluída(s)` : null,
+    deliveries.extras ? `${deliveries.extras} demanda(s) extra(s) registrada(s)` : null,
+    deliveries.evidences ? `${deliveries.evidences} evidência(s) salva(s)` : null,
+  ].filter(Boolean);
+  const msg = `Check-in salvo${parts.length ? `: ${parts.join(", ")}` : ""}. Bom trabalho!`;
+  return { ok: deliveries.warnings.length === 0, message: deliveries.warnings.length ? `${msg} Atenção: ${deliveries.warnings.join(" ")}` : msg };
 });
 
 export const deleteCheckIn = safeAction(async (_prev: ActionResult, fd: FormData) => {

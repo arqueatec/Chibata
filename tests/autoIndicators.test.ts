@@ -11,7 +11,7 @@ const T = (over: Partial<AutoTask>): AutoTask => ({
   fields: {},
   ...over,
 });
-const rule = (r: Partial<AutoRule> & Pick<AutoRule, "type">): AutoRule => ({ projectIds: [], segmentMode: "include", scope: "all", ...r });
+const rule = (r: Partial<AutoRule> & Pick<AutoRule, "type">): AutoRule => ({ projectIds: [], segmentMode: "include", scope: "all", taskOrigin: "all", ...r });
 const run = (r: AutoRule, tasks: AutoTask[], day = "2026-10-06", changes: AutoFieldChange[] = []) =>
   computeAutoValue({ rule: r, userId: "natan", day, today: "2026-10-07", tasks, changes });
 
@@ -69,7 +69,7 @@ describe("indicadores automáticos a partir das tarefas", () => {
   it("regras inválidas são ignoradas", () => {
     expect(parseAutoRule(null)).toBeNull();
     expect(parseAutoRule({ type: "INEXISTENTE" })).toBeNull();
-    expect(parseAutoRule({ type: "TASKS_COMPLETED" })).toEqual({ type: "TASKS_COMPLETED", projectIds: [], segmentMode: "include", scope: "all" });
+    expect(parseAutoRule({ type: "TASKS_COMPLETED" })).toEqual({ type: "TASKS_COMPLETED", projectIds: [], segmentMode: "include", scope: "all", taskOrigin: "all" });
   });
 });
 

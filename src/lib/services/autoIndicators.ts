@@ -2,6 +2,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { computeAutoValue, isCrmRule, isGrantRule, parseAutoRule, type AutoCrmEvent, type AutoGrantEvent, type AutoFieldChange, type AutoTask } from "@/lib/domain/autoIndicators";
+import { countsAsDone } from "@/lib/domain/deliveries";
 import { addDays, eachDay, keyToDate, maxKey, todayKey } from "@/lib/domain/dates";
 
 /** Dia (fuso do app) de um instante. */
@@ -34,7 +35,10 @@ export async function recomputeAutoIndicators(opts: { userIds?: string[]; days?:
   const [tasks, changes, crmRows, grantRows] = await Promise.all([
     prisma.task.findMany({
       where: { assigneeId: { in: userIds } },
-      select: { assigneeId: true, projectId: true, title: true, createdAt: true, dueDate: true, completedAt: true, status: true, asanaFields: true },
+      select: {
+        assigneeId: true, projectId: true, title: true, createdAt: true, dueDate: true, completedAt: true, status: true, asanaFields: true,
+        unplanned: true, requiresEvidence: true, evidenceUrl: true, asanaAttachments: true, contestedAt: true,
+      },
     }),
     prisma.taskFieldChange.findMany({
       where: { changedAt: { gte: keyToDate(addDays(from, -1)) }, task: { assigneeId: { in: userIds } } },
@@ -75,6 +79,8 @@ export async function recomputeAutoIndicators(opts: { userIds?: string[]; days?:
     dueOn: t.dueDate ? t.dueDate.toISOString().slice(0, 10) : null,
     completedOn: t.status === "DONE" && t.completedAt ? dayOf(t.completedAt) : null,
     fields: (t.asanaFields ?? {}) as Record<string, string | number | null>,
+    unplanned: t.unplanned,
+    counts: countsAsDone(t),
   }));
   const autoChanges: AutoFieldChange[] = changes.map((c) => ({
     assigneeId: c.task.assigneeId,

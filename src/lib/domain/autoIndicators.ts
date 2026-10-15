@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { DayKey } from "./dates";
 
 export const AUTO_RULE_TYPES = {
-  TASKS_COMPLETED: "Tarefas concluídas no dia",
+  TASKS_COMPLETED: "Tarefas concluídas no dia (entregas)",
   TASKS_CREATED: "Tarefas criadas no dia",
   TASKS_OVERDUE: "Tarefas atrasadas (abertas com prazo vencido)",
   FIELD_SUM: "Soma de um campo numérico do Asana nas tarefas abertas (valor atual)",
@@ -43,6 +43,8 @@ export const autoRuleSchema = z.object({
   segment: z.string().trim().max(120).optional(),
   /** CRM: "include" = só o segmento; "exclude" = todos menos o segmento. */
   segmentMode: z.enum(["include", "exclude"]).default("include"),
+  /** Tarefas concluídas: todas, só as planejadas ou só as demandas extras (registradas no check-in). */
+  taskOrigin: z.enum(["all", "planned", "unplanned"]).default("all"),
   /** CRM/editais: "all" = toda a equipe; "person" = só o que a pessoa fez/é responsável. */
   scope: z.enum(["all", "person"]).default("all"),
 });
@@ -64,6 +66,10 @@ export interface AutoTask {
   dueOn: DayKey | null;
   /** Dia (fuso do app) em que foi concluída; null se aberta. */
   completedOn: DayKey | null;
+  /** Demanda extra registrada no check-in. */
+  unplanned?: boolean;
+  /** false quando concluída mas contestada ou sem a evidência exigida (não conta como entrega). */
+  counts?: boolean;
   fields: Record<string, string | number | null>;
 }
 
@@ -147,7 +153,12 @@ export function computeAutoValue(params: {
   const mine = params.tasks.filter((t) => t.assigneeId === userId && matches(rule, t));
   switch (rule.type) {
     case "TASKS_COMPLETED":
-      return mine.filter((t) => t.completedOn === day).length;
+      return mine.filter(
+        (t) =>
+          t.completedOn === day &&
+          t.counts !== false &&
+          (rule.taskOrigin === "all" || (rule.taskOrigin === "unplanned") === !!t.unplanned),
+      ).length;
     case "TASKS_CREATED":
       return mine.filter((t) => t.createdOn === day).length;
     case "TASKS_OVERDUE":
@@ -227,6 +238,7 @@ function computeGrantValue(rule: AutoRule, userId: string, day: DayKey, events: 
 export function describeAutoRule(rule: AutoRule, projectNames: Map<string, string> = new Map()): string {
   const parts: string[] = [AUTO_RULE_TYPES[rule.type]];
   if (rule.field && !isCrmRule(rule.type)) parts.push(`campo “${rule.field}”${rule.value ? ` = “${rule.value}”` : ""}`);
+  if (rule.type === "TASKS_COMPLETED" && rule.taskOrigin !== "all") parts.push(rule.taskOrigin === "planned" ? "só planejadas" : "só demandas extras");
   if (rule.nameContains) parts.push(`título contém “${rule.nameContains}”`);
   if (isCrmRule(rule.type)) {
     if (rule.type === "CRM_STATUS_REACHED" && rule.value) parts.push(`etapa “${rule.value}”`);
