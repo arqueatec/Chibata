@@ -197,7 +197,7 @@ const GOALS: Record<PersonKey, GoalDef[]> = {
     { title: "Estudo de condições e tempos mínimos de cada etapa da produção do NoFire", due: "2026-12-31" },
     { title: "Reduzir o tempo médio de produção de 5 para 4 horas por lote", due: "2027-02-26" },
     { title: "Massa para produção de NoFire ex loco: testes iniciais e formulação inicial", due: "2027-03-31", description: "Massa em pó para diluição em planta externa: massa inicial, 5 formulações em pó, estabilidade do pó, diluição fora da estrutura atual, teste de supressão com o gel diluído e principais entraves." },
-    { title: "Pesquisa externa: Biomanta (Cientista Arretado)", due: "2027-03-31", description: "Prazos conforme as demandas passadas pelo Yago." },
+    { title: "Pesquisa externa: Biomanta (Cientista Arretado)", due: "2027-02-26", description: "Entrega do semestre pelo plano de trabalho (PLAN-BFI-0317-26, mês 1 = setembro/2026): T1 revisão bibliográfica e planejamento experimental (até 30/11/2026) e T2 síntese e caracterização inicial dos materiais (até 26/02/2027). O projeto vai até agosto/2028; o cronograma completo está no Asana." },
     { title: "Pesquisa externa: nanopartículas de ouro", due: "2027-03-31", description: "Prazos conforme as demandas passadas pelo Yago." },
     { title: "Pesquisa externa: resina + curcumina", due: "2027-03-31", description: "Prazos conforme as demandas passadas pelo Yago." },
     { title: "Pesquisa externa: Transforma PE", due: "2027-03-31", description: "Prazos conforme as demandas passadas pelo Yago." },
