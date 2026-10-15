@@ -1,4 +1,4 @@
-# ArqueaTec · Desempenho
+# SistemArquea · ArqueaTec
 
 Aplicativo de acompanhamento diário de desempenho da equipe ArqueaTec: check-in rápido pelo celular, indicadores por área com metas e pesos configuráveis, metas e tarefas, dashboard do CEO com alertas, notas semanais/mensais calculadas de forma transparente, feedbacks, revisões mensais e trilha de auditoria.
 
@@ -42,7 +42,7 @@ Aplicativo de acompanhamento diário de desempenho da equipe ArqueaTec: check-in
 
 ### Integração com o CRM NoFire (`/admin/crm` e `/comercial`)
 
-O Chibata **lê** o CRM pela API `GET /api/integracao/chibata` do próprio CRM, protegida por token. A integração é somente leitura: o Chibata nunca altera nada no CRM.
+O SistemArquea **lê** o CRM pela API `GET /api/integracao/chibata` do próprio CRM, protegida por token. A integração é somente leitura: o SistemArquea nunca altera nada no CRM.
 
 - **O que é copiado:** contas (foto atual) e os eventos datados dos últimos 60 dias: contas criadas, contatos, mudanças de etapa do funil e vendas. Telefones, e-mails e nomes de contato dos clientes não vêm, nem o fluxo de caixa.
 - **Quando sincroniza:** todo dia às 7h45, junto com o Asana; ao abrir o check-in ou o painel Comercial, se a última sincronização tiver mais de 10 minutos; e pelo botão em `/admin/crm`.
@@ -55,12 +55,12 @@ O Chibata **lê** o CRM pela API `GET /api/integracao/chibata` do próprio CRM, 
   As regras podem contar a equipe comercial inteira ou só o que a pessoa fez.
 - **Painel Comercial:** litros e receita do mês, funil por etapa, próximas ações vencidas ou até amanhã, contas sem contato há mais de 30 dias, vendas e contatos recentes, tudo com link "Abrir no CRM". Aparece para o administrador e para quem tem conta vinculada no CRM.
 - **Check-in:** para quem tem conta vinculada no CRM, entram os contatos e as vendas registrados desde o último check-in e as próximas ações das contas pelas quais a pessoa é responsável.
-- **Configuração no Chibata:**
+- **Configuração no SistemArquea:**
   - `CRM_API_URL`: endereço do CRM;
   - `CRM_API_TOKEN`: igual ao `CHIBATA_API_TOKEN` configurado no CRM;
   - `CRM_BYPASS_SECRET`: necessário se o CRM tiver a proteção de deploy da Vercel ligada.
 
-  Depois, em `/admin/crm`, vincule os usuários do CRM às pessoas do Chibata.
+  Depois, em `/admin/crm`, vincule os usuários do CRM às pessoas do SistemArquea.
 
 ### Editais (`/editais`)
 
@@ -125,7 +125,7 @@ cp .env.example .env
 # edite DATABASE_URL e DATABASE_URL_UNPOOLED (localmente, as duas podem ser iguais)
 
 # Exemplo com Docker:
-# docker run -d --name pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=chibata -p 5432:5432 postgres:16
+# docker run -d --name pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=sistemarquea -p 5432:5432 postgres:16
 
 # 3. Criar as tabelas (aplica as migrações em prisma/migrations)
 npx prisma migrate deploy      # ou: npm run db:migrate (modo desenvolvimento)

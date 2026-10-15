@@ -59,7 +59,7 @@ export async function fetchCrm(since: string): Promise<CrmPayload> {
     const text = await res.text().catch(() => "");
     throw new CrmError(
       text.includes("Não autorizado")
-        ? "O CRM recusou o token: confira se CRM_API_TOKEN no Chibata é igual a CHIBATA_API_TOKEN no CRM."
+        ? "O CRM recusou o token: confira se CRM_API_TOKEN no SistemArquea é igual a CHIBATA_API_TOKEN no CRM."
         : "A proteção da Vercel bloqueou o acesso ao CRM: confira CRM_BYPASS_SECRET.",
       401,
     );

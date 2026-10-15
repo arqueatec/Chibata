@@ -41,12 +41,12 @@ export default async function AdminCrm() {
           </p>
         )}
         <p className="mt-3 text-xs text-slate-500">
-          Somente leitura: o Chibata não altera nada no CRM. Sincroniza todo dia às 7h45, ao abrir o check-in ou o painel Comercial (se a última tiver mais de 10 minutos) e
+          Somente leitura: o SistemArquea não altera nada no CRM. Sincroniza todo dia às 7h45, ao abrir o check-in ou o painel Comercial (se a última tiver mais de 10 minutos) e
           por este botão. Não são copiados contatos pessoais dos clientes nem o fluxo de caixa.
         </p>
       </Card>
 
-      <Card title="Pessoas: usuário do CRM ↔ pessoa no Chibata">
+      <Card title="Pessoas: usuário do CRM ↔ pessoa no SistemArquea">
         {crmUsers.length === 0 ? (
           <p className="text-sm text-slate-500">Sincronize uma vez para listar os usuários do CRM.</p>
         ) : (
@@ -101,7 +101,7 @@ function NotConfigured() {
       <ol className="list-decimal space-y-2 pl-5 text-sm text-slate-700">
         <li>No CRM, aplique a atualização de integração e crie a variável <code className="rounded bg-slate-100 px-1">CHIBATA_API_TOKEN</code> com um valor aleatório longo.</li>
         <li>
-          Aqui no Chibata (Vercel → Settings → Environments → Production), crie <code className="rounded bg-slate-100 px-1">CRM_API_URL</code> (endereço do CRM),{" "}
+          Aqui no SistemArquea (Vercel → Settings → Environments → Production), crie <code className="rounded bg-slate-100 px-1">CRM_API_URL</code> (endereço do CRM),{" "}
           <code className="rounded bg-slate-100 px-1">CRM_API_TOKEN</code> (o mesmo valor do CHIBATA_API_TOKEN) e, se o CRM tiver proteção de deploy da Vercel,{" "}
           <code className="rounded bg-slate-100 px-1">CRM_BYPASS_SECRET</code>.
         </li>

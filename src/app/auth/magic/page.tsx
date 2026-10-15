@@ -13,7 +13,7 @@ export default async function MagicPage({ searchParams }: { searchParams: Promis
         {token ? (
           <ActionForm action={consumeMagicLink}>
             <input type="hidden" name="token" value={token} />
-            <SubmitButton className="btn-primary w-full" pendingText="Entrando…">Entrar no ArqueaTec Desempenho</SubmitButton>
+            <SubmitButton className="btn-primary w-full" pendingText="Entrando…">Entrar no SistemArquea</SubmitButton>
           </ActionForm>
         ) : (
           <p className="text-sm text-slate-600">Link inválido.</p>

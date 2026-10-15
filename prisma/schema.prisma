@@ -449,7 +449,7 @@ model GrantItem {
   assigneeId String?
   assignee   User?         @relation("GrantItemAssignee", fields: [assigneeId], references: [id])
   amount     Float?
-  /// Tarefa criada no Chibata para o responsável (conta no desempenho dele).
+  /// Tarefa criada no SistemArquea para o responsável (conta no desempenho dele).
   taskId     String?       @unique
   task       Task?         @relation(fields: [taskId], references: [id], onDelete: SetNull)
   createdAt  DateTime      @default(now())

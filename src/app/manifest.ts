@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "ArqueaTec Desempenho",
-    short_name: "ArqueaTec",
+    name: "SistemArquea · ArqueaTec",
+    short_name: "SistemArquea",
     start_url: "/checkin",
     display: "standalone",
     background_color: "#f8fafc",
