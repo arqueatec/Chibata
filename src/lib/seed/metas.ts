@@ -49,6 +49,11 @@ export function litrosDoMes(mes: string): number {
   return LITROS_REGIME;
 }
 
+/** Meta mensal de testes de P&D do NoFire: 4 por mês até dezembro/2026, 2 por mês depois. */
+export function testesPdDoMes(mes: string): number {
+  return mes <= "2026-12" ? 4 : 2;
+}
+
 const PROVISORIA = "Data provisória: o prazo ainda não foi definido e será atualizado.";
 
 function areas(mes: string): {
@@ -89,9 +94,11 @@ function areas(mes: string): {
       name: "Produção e Pesquisa",
       description: "Produção e controle de qualidade do NoFire; otimização do processo e desenvolvimento da massa ex loco.",
       indicators: [
-        { name: "Litros produzidos", description: "Acompanha a rampa de vendas. Capacidade atual: cerca de 4.000 L/mês. Fonte: ordem de produção/ficha de lote.", targetValue: litros, targetPeriod: "MONTHLY", weight: 3 },
+        { name: "Pedidos de produção atendidos no prazo (%)", description: "Produção é feita a partir de pedido de venda. Lançar o percentual acumulado do mês. Litros produzidos ficam só como registro na ficha de lote.", unit: "PERCENT", aggregation: "LAST", targetValue: 100, targetPeriod: "MONTHLY", weight: 3 },
         { name: "Tempo médio de produção por lote", description: "Inclui envase. Hoje cerca de 5 h; meta de 4 h até fevereiro/2027. Lançar a média mais recente.", unit: "HOURS", direction: "LOWER_BETTER", aggregation: "LAST", targetValue: 4, targetPeriod: "MONTHLY", weight: 2 },
-        { name: "Lotes com ficha de lote completa (%)", description: "Lançar o percentual acumulado do mês.", unit: "PERCENT", aggregation: "LAST", targetValue: 100, targetPeriod: "MONTHLY", weight: 2 },
+        { name: "Lotes com ficha completa e identificação no balde (%)", description: "Identificação no balde cobrada a partir de dezembro/2026. Lançar o percentual acumulado do mês.", unit: "PERCENT", aggregation: "LAST", targetValue: 100, targetPeriod: "MONTHLY", weight: 2 },
+        { name: "Testes de P&D do NoFire concluídos e registrados", description: "Estudo de tempos mínimos (até dezembro) e massa ex loco (até março). A meta muda por mês e é atualizada pela carga.", targetValue: testesPdDoMes(mes), targetPeriod: "MONTHLY", weight: 2 },
+        { name: "Demandas de pesquisa externa entregues no prazo (%)", description: "Biomanta, nanopartículas de ouro, resina + curcumina, Transforma PE e carbon dots, conforme as demandas passadas pelo Yago. Lançar o percentual acumulado do mês.", unit: "PERCENT", aggregation: "LAST", targetValue: 100, targetPeriod: "MONTHLY", weight: 2 },
       ],
     },
     {
@@ -172,7 +179,7 @@ const GOALS: Record<PersonKey, GoalDef[]> = {
     { title: "Equipe com indicadores no documento de gestão e entregas no Asana", due: "2026-10-30" },
     { title: "Averbação do contrato de licenciamento UFPE/Arqueatec no INPI", due: "2026-10-30", description: "Pedido de patente BR 10 2022 015289 6. Enviar o comprovante à Coordenação de Transferência de Tecnologia da UFPE." },
     { title: "FISPQ do NoFire corrigida e reemitida", due: "2026-11-30" },
-    { title: "Massa para produção de NoFire ex loco desenvolvida", due: "2026-12-31" },
+    { title: "Massa para produção de NoFire ex loco desenvolvida", due: "2027-03-31", description: "Massa pronta em pó, para vender e ser apenas diluída em gel numa planta externa." },
     { title: "Espaço de produção definido e formalizado (ITEP)", due: "2027-01-29" },
     { title: "Dossiê técnico do NoFire protocolado no IBAMA/Prevfogo", due: "2027-02-26", description: "Eficácia + ecotoxicologia." },
     { title: "Reunião formal com a coordenação do Prevfogo", due: "2027-02-26" },
@@ -189,7 +196,12 @@ const GOALS: Record<PersonKey, GoalDef[]> = {
     { title: "Padronizar a identificação e a rotulagem do NoFire", due: "2026-11-30" },
     { title: "Estudo de condições e tempos mínimos de cada etapa da produção do NoFire", due: "2026-12-31" },
     { title: "Reduzir o tempo médio de produção de 5 para 4 horas por lote", due: "2027-02-26" },
-    { title: "Massa para produção de NoFire ex loco: testes iniciais e formulação inicial", due: "2027-03-31", description: "Testes iniciais, formulação inicial/condição de preparo mais adequada e identificação dos principais entraves." },
+    { title: "Massa para produção de NoFire ex loco: testes iniciais e formulação inicial", due: "2027-03-31", description: "Massa em pó para diluição em planta externa: massa inicial, 5 formulações em pó, estabilidade do pó, diluição fora da estrutura atual, teste de supressão com o gel diluído e principais entraves." },
+    { title: "Pesquisa externa: Biomanta (Cientista Arretado)", due: "2027-03-31", description: "Prazos conforme as demandas passadas pelo Yago." },
+    { title: "Pesquisa externa: nanopartículas de ouro", due: "2027-03-31", description: "Prazos conforme as demandas passadas pelo Yago." },
+    { title: "Pesquisa externa: resina + curcumina", due: "2027-03-31", description: "Prazos conforme as demandas passadas pelo Yago." },
+    { title: "Pesquisa externa: Transforma PE", due: "2027-03-31", description: "Prazos conforme as demandas passadas pelo Yago." },
+    { title: "Pesquisa externa: carbon dots", due: "2027-03-31", description: "Prazos conforme as demandas passadas pelo Yago." },
   ],
   junior: [
     { title: "Mapa tecnológico: técnicas, laboratórios e procedimentos de acesso", due: "2027-01-29" },
@@ -449,7 +461,7 @@ export async function cargaMetas(prisma: PrismaClient, opts: CargaOptions = {}):
         entityType: "Carga",
         entityId: `metas-${mes}`,
         action: "IMPORT",
-        after: { referencia: hoje, litrosDoMes: litrosDoMes(mes), ...contagem },
+        after: { referencia: hoje, litrosDoMes: litrosDoMes(mes), testesPdDoMes: testesPdDoMes(mes), ...contagem },
         reason: "Carga de funções, indicadores e metas (out/2026 a mar/2027)",
       },
     });
