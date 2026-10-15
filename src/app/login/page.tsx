@@ -13,8 +13,8 @@ export default async function LoginPage() {
       <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-gradient-to-b from-brand-50 to-slate-50" />
       <div className="mb-6 text-center">
         <Image src="/logo-arqueatec.png" alt="ArqueaTec" width={224} height={82} priority className="mx-auto mb-4 h-auto w-56" />
-        <h1 className="text-xl font-bold text-brand-600">Acompanhamento de desempenho</h1>
-        <p className="text-sm text-slate-500">Check-in, metas e indicadores da equipe</p>
+        <h1 className="text-xl font-bold text-brand-600">SistemArquea</h1>
+        <p className="text-sm text-slate-500">Acompanhamento de desempenho: check-in, metas e indicadores da equipe</p>
       </div>
       <div className="card space-y-6">
         <ActionForm action={loginWithPassword}>

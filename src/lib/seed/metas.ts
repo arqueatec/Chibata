@@ -9,7 +9,7 @@
  * Tudo roda em uma única transação. Em modo de simulação (`aplicar: false`) a transação é
  * desfeita no final, então o relatório mostra exatamente o que seria gravado.
  *
- * Divisão combinada: o Chibata guarda o que é medido toda semana (indicadores, check-in, notas e
+ * Divisão combinada: o SistemArquea guarda o que é medido toda semana (indicadores, check-in, notas e
  * revisão mensal); o Asana guarda as entregas com prazo e a rotina de cobrança. Por isso só as
  * metas principais de cada pessoa entram aqui como "Meta" (kind GOAL), sem as subtarefas.
  */

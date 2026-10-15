@@ -56,7 +56,7 @@ export const requestMagicLink = safeAction(async (_prev: ActionResult, fd: FormD
   const link = `${appUrl()}/auth/magic?token=${token}`;
   await sendEmail({
     to: user.email,
-    subject: "Seu link de acesso — ArqueaTec Desempenho",
+    subject: "Seu link de acesso — SistemArquea",
     text: `Olá, ${user.name}!\n\nUse o link abaixo para entrar (válido por 15 minutos):\n${link}\n\nSe você não pediu este acesso, ignore este e-mail.`,
     html: `<p>Olá, ${escapeHtml(user.name)}!</p><p><a href="${link}">Clique aqui para entrar</a> (válido por 15 minutos).</p><p>Se você não pediu este acesso, ignore este e-mail.</p>`,
   });

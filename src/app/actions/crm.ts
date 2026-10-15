@@ -26,7 +26,7 @@ export const runCrmSync = safeAction(async () => {
   };
 });
 
-/** Vincula cada conta da equipe do CRM a uma pessoa do Chibata (User.crmEmails). */
+/** Vincula cada conta da equipe do CRM a uma pessoa do SistemArquea (User.crmEmails). */
 export const saveCrmPeople = safeAction(async (_prev: ActionResult, fd: FormData) => {
   const access = await requireAdmin();
   const raw = formToObject(fd);

@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "ArqueaTec · Desempenho", template: "%s · ArqueaTec" },
+  title: { default: "SistemArquea · ArqueaTec", template: "%s · SistemArquea" },
   description: "Acompanhamento diário de desempenho da equipe ArqueaTec",
   robots: { index: false, follow: false },
 };

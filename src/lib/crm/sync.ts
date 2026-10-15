@@ -13,7 +13,7 @@ export interface CrmSyncReport {
   durationMs: number;
   accounts: number;
   events: number;
-  /** E-mails da equipe do CRM ainda sem pessoa vinculada no Chibata. */
+  /** E-mails da equipe do CRM ainda sem pessoa vinculada no SistemArquea. */
   unmappedEmails: string[];
   crmUsers: { name: string; email: string }[];
   error?: string;

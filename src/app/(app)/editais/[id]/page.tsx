@@ -127,7 +127,7 @@ export default async function GrantPage({ params }: { params: Promise<{ id: stri
                                   {i.dueDate && <span className={late ? "font-semibold text-red-700" : ""}>{late ? "atrasado · " : ""}{formatShortDay(i.dueDate)}</span>}
                                   {i.assignee && ` · ${i.assignee.name}`}
                                   {i.amount !== null && ` · ${formatValue(i.amount, "CURRENCY")}`}
-                                  {i.task && <> · <Link href={`/tarefas?pessoa=${i.assigneeId}`} className="link">tarefa no Chibata</Link></>}
+                                  {i.task && <> · <Link href={`/tarefas?pessoa=${i.assigneeId}`} className="link">tarefa no SistemArquea</Link></>}
                                 </div>
                               </div>
                             </div>
