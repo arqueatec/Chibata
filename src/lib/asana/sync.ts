@@ -12,6 +12,9 @@ import { customFieldsMap, isSampleTask, statusFromAsana, userForAsanaEmail, type
 // Configuração (guardada no banco)
 // ---------------------------------------------------------------------------------------------
 
+/** Limite de consultas de anexos por sincronização (respeita o limite de requisições do Asana). */
+const ATTACHMENT_CHECKS_PER_SYNC = 60;
+
 export interface SyncReport {
   at: string;
   ok: boolean;
@@ -27,6 +30,8 @@ export interface SyncReport {
   /** E-mails do Asana com tarefas mas sem pessoa vinculada no app. */
   unmappedEmails: string[];
   fieldChanges: number;
+  /** Entregas que ganharam evidência (anexo no Asana) nesta sincronização. */
+  evidences: number;
   autoEntries: number;
   error?: string;
 }
@@ -108,6 +113,7 @@ async function doSync(opts: { actorId: string | null; trigger: string }): Promis
     unassigned: 0,
     unmappedEmails: [],
     fieldChanges: 0,
+    evidences: 0,
     autoEntries: 0,
   };
   try {
@@ -187,7 +193,9 @@ async function doSync(opts: { actorId: string | null; trigger: string }): Promis
         }
         if (existing) {
           const keepGoal = existing.kind === "GOAL" || (t.num_subtasks ?? 0) > 0;
-          await prisma.task.update({ where: { id: existing.id }, data: { ...data, kind: keepGoal ? "GOAL" : "TASK" } });
+          // Demanda extra registrada no check-in com data retroativa: o dia da entrega é o do check-in, não o da criação no Asana
+          const keepCompletedAt = existing.unplanned && existing.completedAt && data.status === "DONE" ? { completedAt: existing.completedAt } : {};
+          await prisma.task.update({ where: { id: existing.id }, data: { ...data, ...keepCompletedAt, kind: keepGoal ? "GOAL" : "TASK" } });
           appIdByGid.set(t.gid, existing.id);
           report.updated++;
         } else {
@@ -227,6 +235,21 @@ async function doSync(opts: { actorId: string | null; trigger: string }): Promis
         if (s._count.feedbacks === 0) await prisma.task.delete({ where: { id: s.id } });
         else await prisma.task.update({ where: { id: s.id }, data: { asanaGid: null, asanaUrl: null } });
         report.removed++;
+      }
+    }
+
+    // Evidências: anexos no Asana das entregas recentes que ainda não têm evidência registrada
+    const toCheck = await prisma.task.findMany({
+      where: { asanaGid: { not: null }, status: "DONE", asanaAttachments: 0, evidenceUrl: null, completedAt: { gte: new Date(Date.now() - 35 * 86400_000) } },
+      select: { id: true, asanaGid: true },
+      orderBy: { completedAt: "desc" },
+      take: ATTACHMENT_CHECKS_PER_SYNC,
+    });
+    for (const t of toCheck) {
+      const atts = await asanaGet<{ gid: string }[]>("/attachments", { parent: t.asanaGid!, opt_fields: "name" }).catch(() => null);
+      if (atts && atts.length > 0) {
+        await prisma.task.update({ where: { id: t.id }, data: { asanaAttachments: atts.length } });
+        report.evidences++;
       }
     }
 

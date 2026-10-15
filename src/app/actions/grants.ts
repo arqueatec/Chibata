@@ -192,6 +192,8 @@ export const addGrantItem = safeAction(async (_prev: ActionResult, fd: FormData)
             assigneeId: d.assigneeId!,
             createdById: access.user.id,
             dueDate: d.dueDate ? keyToDate(d.dueDate) : null,
+            // Metas e relatórios de edital só contam na nota com evidência
+            requiresEvidence: d.kind !== "INSTALLMENT",
           },
         })
       : null;

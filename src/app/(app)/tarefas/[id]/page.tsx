@@ -1,3 +1,5 @@
+import { DeliveryControls } from "@/components/DeliveryControls";
+import { canStillContest } from "@/lib/domain/deliveries";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
@@ -74,6 +76,20 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
               </ActionForm>
             ))}
         </div>
+      )}
+
+      {(task.status === "DONE" || task.requiresEvidence || task.evidenceUrl) && (
+        <Card title="Entrega e evidência">
+          <DeliveryControls
+            t={task}
+            canEdit={editable}
+            leader={access.isAdmin || canGiveFeedback(access.ctx, task.assigneeId)}
+            canContestNow={!!task.completedAt && (access.isAdmin || canStillContest(todayKey(task.completedAt), today))}
+          />
+        </Card>
+      )}
+      {task.status !== "DONE" && !task.requiresEvidence && !task.evidenceUrl && (access.isAdmin || canGiveFeedback(access.ctx, task.assigneeId)) && (
+        <DeliveryControls t={task} canEdit={false} leader canContestNow={false} />
       )}
 
       {task.kind === "GOAL" && (

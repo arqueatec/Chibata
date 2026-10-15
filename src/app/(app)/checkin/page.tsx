@@ -17,6 +17,8 @@ import { isCrmRule, parseAutoRule } from "@/lib/domain/autoIndicators";
 import { checkInSuggestions } from "@/lib/services/checkinSuggestions";
 import { crmConfigured } from "@/lib/crm/client";
 import { syncCrmIfStale } from "@/lib/crm/sync";
+import { ExtraTasks } from "@/components/ExtraTasks";
+import { hasEvidence, notCountingReason } from "@/lib/domain/deliveries";
 
 export const metadata = { title: "Check-in" };
 
@@ -37,13 +39,26 @@ export default async function CheckInPage({ searchParams }: { searchParams: Prom
   const target = await prisma.user.findUnique({ where: { id: userId }, include: { area: true } });
   if (!target) notFound();
 
-  const [existing, indicators, entries, previous, recent] = await Promise.all([
+  const [existing, indicators, entries, recent, openTasks, doneNear, projects] = await Promise.all([
     prisma.checkIn.findUnique({ where: { userId_date: { userId, date: keyToDate(date) } } }),
     indicatorsForUser(userId),
     prisma.indicatorEntry.findMany({ where: { userId, date: keyToDate(date) } }),
-    prisma.checkIn.findFirst({ where: { userId, date: { lt: keyToDate(date) } }, orderBy: { date: "desc" } }),
     prisma.checkIn.findMany({ where: { userId }, orderBy: { date: "desc" }, take: 7, select: { id: true, date: true, selfScore: true, blockers: true, blockerResolvedAt: true } }),
+    // Entregas: tarefas abertas para marcar como concluídas e as já concluídas no dia
+    prisma.task.findMany({
+      where: { assigneeId: userId, status: { not: "DONE" } },
+      orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
+      take: 40,
+      include: { project: { select: { name: true } } },
+    }),
+    prisma.task.findMany({
+      where: { assigneeId: userId, status: "DONE", completedAt: { gte: new Date(`${addDays(date, -1)}T00:00:00.000Z`), lt: new Date(`${addDays(date, 2)}T00:00:00.000Z`) } },
+      orderBy: { completedAt: "asc" },
+      include: { project: { select: { name: true } } },
+    }),
+    prisma.project.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, asanaGid: true } }),
   ]);
+  const doneToday = doneNear.filter((t) => t.completedAt && todayKey(t.completedAt) === date);
   const decision = canEditCheckIn(access.ctx, userId, date, today);
   const locked = !decision.allowed;
 
@@ -55,13 +70,17 @@ export default async function CheckInPage({ searchParams }: { searchParams: Prom
   }
   const entryOf = (id: string) => entries.find((e) => e.indicatorId === id)?.value;
   const qs = (d: string) => `/checkin?date=${d}${userId !== access.user.id ? `&user=${userId}` : ""}`;
-  // Pré-preenchimento a partir das tarefas (Asana/app), só para o check-in de hoje ainda não feito
+  // Pré-preenchimento a partir das tarefas (Asana/app) e do CRM, para o check-in ainda não feito
   const integration = await asanaEnabled();
   if (integration) after(() => syncIfStale(10).catch(() => null));
   if (crmConfigured() && target.crmEmails.length > 0) after(() => syncCrmIfStale(10).catch(() => null));
-  const suggestions = !existing && date === today ? await checkInSuggestions(userId, today, previous?.createdAt ?? null, target.crmEmails.length ? [target.email, ...target.crmEmails] : []) : null;
-  const defaultYesterday = existing?.yesterday ?? (suggestions?.done.length ? suggestions.done.join("\n") : (previous?.today ?? ""));
-  const defaultToday = existing?.today ?? (suggestions?.plan.length ? suggestions.plan.join("\n") : "");
+  const suggestions = !existing ? await checkInSuggestions(userId, date, target.crmEmails.length ? [target.email, ...target.crmEmails] : []) : null;
+  const defaultDone = existing?.yesterday ?? (suggestions?.done.length ? suggestions.done.join("\n") : "");
+  const dueLabel = (d: Date | null) => {
+    if (!d) return null;
+    const k = dateToKey(d);
+    return k < date ? { text: `atrasada · ${formatDay(k).slice(0, 5)}`, late: true } : { text: k === date ? "vence hoje" : `prazo ${formatDay(k).slice(0, 5)}`, late: false };
+  };
   const autoIds = new Set(indicators.filter((i) => parseAutoRule(i.autoRule)).map((i) => i.id));
 
   return (
@@ -109,18 +128,13 @@ export default async function CheckInPage({ searchParams }: { searchParams: Prom
           <Card>
             <div className="space-y-4">
               <div>
-                <label className="label" htmlFor="yesterday">O que foi feito {date === today ? "ontem" : "no dia anterior"}?</label>
-                <textarea id="yesterday" name="yesterday" rows={3} required maxLength={2000} defaultValue={defaultYesterday} className="input" placeholder="Principais entregas, reuniões, avanços…" />
+                <label className="label" htmlFor="yesterday">O que você fez {date === today ? "hoje" : "neste dia"}?</label>
+                <textarea id="yesterday" name="yesterday" rows={4} required maxLength={2000} defaultValue={defaultDone} className="input" placeholder="Principais entregas, reuniões, avanços…" />
                 {!existing && suggestions?.done.length ? (
-                  <p className="hint">Pré-preenchido com as tarefas concluídas desde o seu último check-in — ajuste se necessário.</p>
+                  <p className="hint">Pré-preenchido com o que foi concluído no dia (tarefas e CRM). Ajuste se necessário. As tarefas que contam na nota são as marcadas em “Entregas do dia”, abaixo.</p>
                 ) : (
-                  !existing && previous?.today && <p className="hint">Pré-preenchido com o plano do seu último check-in — ajuste se necessário.</p>
+                  <p className="hint">Resumo do dia. As tarefas que contam na nota são as marcadas em “Entregas do dia”, abaixo.</p>
                 )}
-              </div>
-              <div>
-                <label className="label" htmlFor="today">O que será feito {date === today ? "hoje" : "neste dia"}?</label>
-                <textarea id="today" name="today" rows={3} required maxLength={2000} defaultValue={defaultToday} className="input" placeholder="Prioridades do dia" />
-                {!existing && suggestions?.plan.length ? <p className="hint">Sugestão a partir das suas tarefas em andamento, com prazo até amanhã e das próximas ações do CRM.</p> : null}
               </div>
               <div>
                 <label className="label" htmlFor="blockers">Bloqueios ou pedidos de ajuda <span className="font-normal text-slate-400">(opcional)</span></label>
@@ -151,6 +165,64 @@ export default async function CheckInPage({ searchParams }: { searchParams: Prom
                 </div>
               </div>
             </div>
+          </Card>
+
+          <Card title="Entregas do dia">
+            <p className="mb-3 text-xs text-slate-500">
+              Marque o que você concluiu {date === today ? "hoje" : "neste dia"} e registre as demandas que surgiram e já foram feitas. É isso que conta como entrega na nota.
+              Evidência: anexe o arquivo na tarefa do Asana ou cole um link aqui.
+            </p>
+            {doneToday.length > 0 && (
+              <ul className="mb-3 space-y-2">
+                {doneToday.map((t) => {
+                  const why = notCountingReason(t);
+                  return (
+                    <li key={t.id} className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-2 text-sm">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span aria-hidden className="text-emerald-700">✓</span>
+                        <span className="font-medium">{t.title}</span>
+                        {t.unplanned && <Badge tone="yellow">demanda extra</Badge>}
+                        {t.project && <span className="text-xs text-slate-500">{t.project.name}</span>}
+                        {hasEvidence(t) && <Badge tone="green">📎 com evidência</Badge>}
+                        {why && <Badge tone="red">não conta: {why}</Badge>}
+                      </div>
+                      {!t.asanaAttachments && (
+                        <input name={`evidence_${t.id}`} type="url" defaultValue={t.evidenceUrl ?? ""} placeholder={t.requiresEvidence ? "Link da evidência (obrigatória)" : "Link da evidência (opcional)"} className="input mt-2 !py-1 text-sm" aria-label={`Evidência de ${t.title}`} />
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {openTasks.length > 0 ? (
+              <details className="mb-3 rounded-lg border border-slate-200 p-2" open={doneToday.length === 0}>
+                <summary className="cursor-pointer text-sm font-medium">Concluí tarefas planejadas ({openTasks.length} em aberto)</summary>
+                <ul className="mt-2 space-y-2">
+                  {openTasks.map((t) => {
+                    const due = dueLabel(t.dueDate);
+                    return (
+                      <li key={t.id} className="text-sm">
+                        <label className="flex items-start gap-2">
+                          <input type="checkbox" name="complete" value={t.id} className="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300" />
+                          <span>
+                            {t.title}
+                            <span className="ml-1 text-xs text-slate-500">
+                              {t.project ? `· ${t.project.name} ` : ""}
+                              {due && <span className={due.late ? "text-red-700" : ""}>· {due.text}</span>}
+                            </span>
+                            {t.requiresEvidence && <span className="ml-1"><Badge tone="yellow">exige evidência</Badge></span>}
+                          </span>
+                        </label>
+                        <input name={`evidence_${t.id}`} type="url" defaultValue={t.evidenceUrl ?? ""} placeholder={`Link da evidência${t.requiresEvidence ? " (obrigatória)" : " (opcional)"}${t.asanaGid ? " ou anexe no Asana" : ""}`} className="input mt-1 ml-7 !w-[calc(100%-1.75rem)] !py-1 text-xs" aria-label={`Evidência de ${t.title}`} />
+                      </li>
+                    );
+                  })}
+                </ul>
+              </details>
+            ) : (
+              <p className="mb-3 text-sm text-slate-500">Nenhuma tarefa planejada em aberto.</p>
+            )}
+            <ExtraTasks projects={projects.map((p) => ({ id: p.id, name: p.name, asana: !!p.asanaGid }))} asanaHint={integration} />
           </Card>
 
           {indicators.length > 0 && (

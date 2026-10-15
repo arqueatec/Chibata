@@ -9,7 +9,9 @@ import { TrendChart } from "@/components/TrendChart";
 import { Badge, Card, Delta, Empty, PageHeader, ScorePill, Stat, Tabs } from "@/components/ui";
 import { requireAccess } from "@/lib/authz";
 import { prisma } from "@/lib/db";
-import { canEditCheckIn, canGiveFeedback, canViewUser } from "@/lib/domain/access";
+import { canEditCheckIn, canEditTask, canGiveFeedback, canViewUser } from "@/lib/domain/access";
+import { DeliveryControls } from "@/components/DeliveryControls";
+import { canStillContest, countsAsDone, evidenceRate, hasEvidence } from "@/lib/domain/deliveries";
 import { missingCheckinStreak } from "@/lib/domain/alerts";
 import {
   addDays,
@@ -48,7 +50,9 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
   const from = weeks[0].start < addMonths(startOfMonth(today), -1) ? weeks[0].start : addMonths(startOfMonth(today), -1);
   const perf = await loadPerformanceData([id], from, today);
 
-  const [checkIns, tasks, feedbacks, reviews, auditRows] = await Promise.all([
+  const deliveriesSince = new Date(Date.now() - 30 * 86400_000);
+  const [deliveries, checkIns, tasks, feedbacks, reviews, auditRows] = await Promise.all([
+    prisma.task.findMany({ where: { assigneeId: id, status: "DONE", completedAt: { gte: deliveriesSince } }, orderBy: { completedAt: "desc" }, take: 60, include: { project: { select: { name: true } } } }),
     prisma.checkIn.findMany({
       where: { userId: id },
       orderBy: { date: "desc" },
@@ -174,6 +178,39 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
         <TaskList tasks={tasks} today={today} showAssignee={false} />
       </Card>
 
+      <Card title="Entregas — últimos 30 dias">
+        {deliveries.length === 0 ? (
+          <Empty>Nenhuma tarefa concluída nos últimos 30 dias.</Empty>
+        ) : (
+          <>
+            <p className="mb-3 text-sm text-slate-600">
+              {deliveries.filter((t) => countsAsDone(t)).length} de {deliveries.length} contam na nota ·{" "}
+              {deliveries.filter((t) => t.unplanned).length} demanda(s) extra(s) ·{" "}
+              com evidência: {Math.round((evidenceRate(deliveries) ?? 0) * 100)}%
+            </p>
+            <ul className="divide-y divide-slate-100">
+              {deliveries.map((t) => {
+                const day = todayKey(t.completedAt!);
+                return (
+                  <li key={t.id} className="py-2">
+                    <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+                      <Link href={`/tarefas/${t.id}`} className="font-medium hover:underline">{t.title}</Link>
+                      <span className="text-xs text-slate-500">{formatDay(day).slice(0, 5)}{t.project ? ` · ${t.project.name}` : ""}</span>
+                    </div>
+                    <DeliveryControls
+                      t={t}
+                      canEdit={canEditTask(access.ctx, t) && !hasEvidence(t)}
+                      leader={canGiveFeedback(access.ctx, id)}
+                      canContestNow={access.isAdmin || canStillContest(day, today)}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
+      </Card>
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Histórico de check-ins">
           <ul className="space-y-3">
@@ -190,7 +227,7 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
                     </span>
                   </div>
                   <p><span className="text-slate-500">Feito:</span> {c.yesterday}</p>
-                  <p><span className="text-slate-500">Plano:</span> {c.today}</p>
+                  {c.today && <p><span className="text-slate-500">Plano:</span> {c.today}</p>}
                   {c.blockers && (
                     <p className={`mt-1 ${c.blockerResolvedAt ? "text-slate-500" : "text-red-700"}`}>
                       <span>{c.blockerResolvedAt ? "✓ Bloqueio (resolvido):" : "⚠ Bloqueio:"}</span> {c.blockers} {c.needsHelp && !c.blockerResolvedAt && <Badge tone="red">pediu ajuda</Badge>}

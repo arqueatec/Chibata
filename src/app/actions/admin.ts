@@ -145,6 +145,7 @@ function autoRuleFromForm(raw: Record<string, unknown>): AutoRule | null {
     segment: String(raw.autoSegment ?? "").trim() || undefined,
     segmentMode: raw.autoSegmentMode === "exclude" ? "exclude" : "include",
     scope: raw.autoScope === "person" ? "person" : "all",
+    taskOrigin: raw.autoTaskOrigin === "planned" || raw.autoTaskOrigin === "unplanned" ? raw.autoTaskOrigin : "all",
   });
   if (rule.type === "CRM_STATUS_REACHED" && !rule.value) throw new UserFacingError("Informe a etapa do funil do CRM (ex.: 5 ou “Teste em andamento”).");
   if ((rule.type === "FIELD_SUM" || rule.type === "FIELD_CHANGED_TO") && !rule.field) throw new UserFacingError("Informe o nome do campo do Asana.");

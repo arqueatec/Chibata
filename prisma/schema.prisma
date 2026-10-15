@@ -230,34 +230,46 @@ model Project {
 }
 
 model Task {
-  id            String            @id @default(cuid())
-  kind          TaskKind          @default(TASK)
-  title         String
-  description   String?
-  status        TaskStatus        @default(TODO)
-  blockedReason String?
-  dueDate       DateTime?         @db.Date
-  completedAt   DateTime?
-  assigneeId    String
-  assignee      User              @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  createdById   String
-  createdBy     User              @relation("TaskCreator", fields: [createdById], references: [id])
-  projectId     String?
-  project       Project?          @relation(fields: [projectId], references: [id])
-  parentId      String?
-  parent        Task?             @relation("GoalTasks", fields: [parentId], references: [id])
-  children      Task[]            @relation("GoalTasks")
+  id               String            @id @default(cuid())
+  kind             TaskKind          @default(TASK)
+  title            String
+  description      String?
+  status           TaskStatus        @default(TODO)
+  blockedReason    String?
+  dueDate          DateTime?         @db.Date
+  completedAt      DateTime?
+  assigneeId       String
+  assignee         User              @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdById      String
+  createdBy        User              @relation("TaskCreator", fields: [createdById], references: [id])
+  projectId        String?
+  project          Project?          @relation(fields: [projectId], references: [id])
+  parentId         String?
+  parent           Task?             @relation("GoalTasks", fields: [parentId], references: [id])
+  children         Task[]            @relation("GoalTasks")
   /// Tarefa correspondente no Asana. Quando preenchido, o Asana é a fonte de título, prazo e status.
-  asanaGid      String?           @unique
-  asanaUrl      String?
+  asanaGid         String?           @unique
+  asanaUrl         String?
   /// Campos personalizados do Asana (nome → valor), usados pelos indicadores automáticos.
-  asanaFields   Json?
-  asanaSyncedAt DateTime?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  feedbacks     Feedback[]
-  fieldChanges  TaskFieldChange[]
-  grantItem     GrantItem?
+  asanaFields      Json?
+  asanaSyncedAt    DateTime?
+  /// Demanda que surgiu no dia e foi registrada já concluída no check-in (não estava planejada).
+  unplanned        Boolean           @default(false)
+  /// Só conta como concluída na nota com evidência (link aqui ou anexo no Asana).
+  requiresEvidence Boolean           @default(false)
+  /// Link da evidência (Drive, foto, documento…).
+  evidenceUrl      String?
+  /// Quantidade de anexos da tarefa no Asana (lida na sincronização; conta como evidência).
+  asanaAttachments Int               @default(0)
+  /// Contestação do líder: enquanto contestada, a tarefa concluída não conta na nota.
+  contestedAt      DateTime?
+  contestedById    String?
+  contestReason    String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  feedbacks        Feedback[]
+  fieldChanges     TaskFieldChange[]
+  grantItem        GrantItem?
 
   @@index([assigneeId, status])
   @@index([dueDate])

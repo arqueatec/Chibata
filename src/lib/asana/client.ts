@@ -72,6 +72,10 @@ export async function asanaPut<T>(path: string, data: unknown): Promise<T> {
   return (await request<{ data: T }>("PUT", path, {}, data)).data;
 }
 
+export async function asanaPost<T>(path: string, data: unknown): Promise<T> {
+  return (await request<{ data: T }>("POST", path, {}, data)).data;
+}
+
 export const TASK_FIELDS = [
   "name",
   "completed",
