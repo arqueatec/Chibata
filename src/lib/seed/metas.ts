@@ -34,7 +34,20 @@ type IndDef = {
   weight: number;
 };
 
-type GoalDef = { title: string; due: DayKey; description?: string };
+type SubDef = { title: string; due: DayKey };
+type GoalDef = {
+  title: string;
+  due: DayKey;
+  description?: string;
+  /** Títulos anteriores da mesma meta: a carga renomeia em vez de duplicar. */
+  previousTitles?: string[];
+  /** A meta e suas tarefas só contam na nota com evidência (link ou anexo no Asana). */
+  requiresEvidence?: boolean;
+  /** Tarefas da meta (cada uma vale 1/N do progresso). Mesmos títulos do Asana, para a sincronização vincular sem duplicar. */
+  subtasks?: SubDef[];
+};
+
+const EVID = "Regra: só é concluída com a evidência anexada (link no SistemArquea ou anexo no Asana). Sem evidência, não conta, mesmo que a atividade tenha sido feita.";
 
 /** Rampa de vendas informada pelo Fernando (total de 17.000 L no período). */
 const RAMPA_LITROS: { ate: string; litros: number }[] = [
@@ -204,15 +217,59 @@ const GOALS: Record<PersonKey, GoalDef[]> = {
     { title: "Pesquisa externa: carbon dots", due: "2027-03-31", description: "Prazos conforme as demandas passadas pelo Yago." },
   ],
   junior: [
-    { title: "Mapa tecnológico: técnicas, laboratórios e procedimentos de acesso", due: "2027-01-29" },
-    { title: "Captação: identificar e avaliar pelo menos 4 oportunidades de financiamento para PD&I", due: "2027-03-31" },
-    { title: "Estruturar pelo menos 2 propostas de PD&I (ArqueaTEC, ICTs e/ou empresas)", due: "2027-03-31" },
-    { title: "Prospectar pelo menos 2 parceiros estratégicos (universidades, ICTs, empresas)", due: "2027-03-31" },
-    { title: "Participar de pelo menos 2 reuniões técnico-estratégicas", due: "2027-03-31" },
-    { title: "Estruturar pelo menos 2 demandas técnicas de clientes em planos experimentais", due: "2027-03-31" },
-    { title: "Identificar pelo menos 2 oportunidades de novos produtos ou aplicações", due: "2027-03-31" },
-    { title: "Avaliar pelo menos 2 resultados tecnológicos quanto ao potencial de PI", due: "2027-03-31" },
-    { title: "Representar a ArqueaTEC em pelo menos 2 eventos de inovação", due: "2027-03-31" },
+    { title: "Mapa tecnológico: técnicas, laboratórios e procedimentos de acesso", due: "2027-01-29", requiresEvidence: true,
+      description: `Evidência obrigatória: mapa com técnicas, laboratórios e procedimento de acesso a cada um. ${EVID}` },
+    { title: "Captação: 4 oportunidades de financiamento avaliadas, com texto base e submissão", due: "2027-03-31", requiresEvidence: true,
+      previousTitles: ["Captação: identificar e avaliar pelo menos 4 oportunidades de financiamento para PD&I"],
+      description: `Cada oportunidade vale 25% da meta. Evidências obrigatórias por oportunidade: ficha do edital (órgão, prazo, valor, aderência e decisão), texto base para a submissão e comprovante de submissão. ${EVID}`,
+      subtasks: [
+        { title: "Oportunidade 1: ficha do edital, texto base e comprovante de submissão", due: "2026-10-30" },
+        { title: "Oportunidade 2: ficha do edital, texto base e comprovante de submissão", due: "2026-11-30" },
+        { title: "Oportunidade 3: ficha do edital, texto base e comprovante de submissão", due: "2027-01-29" },
+        { title: "Oportunidade 4: ficha do edital, texto base e comprovante de submissão", due: "2027-02-26" },
+      ] },
+    { title: "Estruturar pelo menos 2 propostas de PD&I (ArqueaTEC, ICTs e/ou empresas)", due: "2027-03-31", requiresEvidence: true,
+      description: `Evidência obrigatória por proposta: comprovante de submissão ou a proposta completa. ${EVID}`,
+      subtasks: [
+        { title: "Proposta 1: comprovante de submissão ou proposta completa", due: "2026-12-31" },
+        { title: "Proposta 2: comprovante de submissão ou proposta completa", due: "2027-03-31" },
+      ] },
+    { title: "Prospectar pelo menos 2 parceiros estratégicos (universidades, ICTs, empresas)", due: "2027-03-31", requiresEvidence: true,
+      description: `Conta a reunião com instituição com a qual a ArqueaTec ainda não coopera, com próximo passo combinado e detalhado (o quê, quem e até quando). Evidência obrigatória: documento com o registro da reunião, o tema tratado, o projeto ou produto da ArqueaTec a que se refere e o próximo passo. ${EVID}`,
+      subtasks: [
+        { title: "Parceiro 1: registro da reunião, tema, projeto/produto e próximo passo", due: "2026-10-30" },
+        { title: "Parceiro 2: registro da reunião, tema, projeto/produto e próximo passo", due: "2027-01-29" },
+      ] },
+    { title: "Participar de pelo menos 2 reuniões técnico-estratégicas", due: "2027-03-31", requiresEvidence: true,
+      description: `Conta a reunião com cliente ou parceiro atual sobre produto ou tecnologia. Evidência obrigatória: ata com os encaminhamentos. ${EVID}`,
+      subtasks: [
+        { title: "Reunião técnica 1: ata com encaminhamentos", due: "2026-10-30" },
+        { title: "Reunião técnica 2: ata com encaminhamentos", due: "2027-02-26" },
+      ] },
+    { title: "Estruturar pelo menos 2 demandas técnicas de clientes em planos experimentais", due: "2027-03-31", requiresEvidence: true,
+      description: `Evidência obrigatória: documento de uma página com problema, hipótese, experimento, resultado e decisão. ${EVID}`,
+      subtasks: [
+        { title: "Demanda de cliente 1: problema, hipótese, experimento, resultado e decisão", due: "2026-11-30" },
+        { title: "Demanda de cliente 2: problema, hipótese, experimento, resultado e decisão", due: "2027-02-26" },
+      ] },
+    { title: "Identificar pelo menos 2 oportunidades de novos produtos ou aplicações", due: "2027-03-31", requiresEvidence: true,
+      description: `Evidência obrigatória: documento técnico de oportunidade. ${EVID}`,
+      subtasks: [
+        { title: "Oportunidade de produto 1: documento técnico", due: "2026-12-31" },
+        { title: "Oportunidade de produto 2: documento técnico", due: "2027-03-31" },
+      ] },
+    { title: "Avaliar pelo menos 2 resultados tecnológicos quanto ao potencial de PI", due: "2027-03-31", requiresEvidence: true,
+      description: `Evidências obrigatórias: relatório de anterioridade e potencial de PI e, se o resultado for positivo, a escrita da patente. ${EVID}`,
+      subtasks: [
+        { title: "Avaliação de PI 1: relatório de anterioridade (e patente escrita, se positivo)", due: "2026-12-31" },
+        { title: "Avaliação de PI 2: relatório de anterioridade (e patente escrita, se positivo)", due: "2027-03-31" },
+      ] },
+    { title: "Representar a ArqueaTEC em pelo menos 2 eventos de inovação", due: "2027-03-31", requiresEvidence: true,
+      description: `Evidência obrigatória: registro com evento, data, contatos feitos e próximos passos. ${EVID}`,
+      subtasks: [
+        { title: "Evento 1: registro com contatos e próximos passos", due: "2026-11-30" },
+        { title: "Evento 2: registro com contatos e próximos passos", due: "2027-03-31" },
+      ] },
   ],
   ilaria: [
     { title: "Frontier Tech Hub: entregar o organograma", due: "2026-10-30", description: PROVISORIA },
@@ -438,17 +495,46 @@ export async function cargaMetas(prisma: PrismaClient, opts: CargaOptions = {}):
       const assigneeId = userIds[p.key];
       const existing = await tx.task.findMany({ where: { assigneeId, kind: "GOAL" } });
       for (const g of GOALS[p.key]) {
-        const cur = existing.find((e) => norm(e.title) === norm(g.title));
+        const titles = [g.title, ...(g.previousTitles ?? [])].map(norm);
+        let cur = existing.find((e) => norm(e.title) === norm(g.title)) ?? existing.find((e) => titles.includes(norm(e.title)));
+        const evidence = g.requiresEvidence ? { requiresEvidence: true } : {};
         if (!cur) {
-          await tx.task.create({
-            data: { kind: "GOAL", title: g.title, description: g.description ?? null, dueDate: keyToDate(g.due), assigneeId, createdById: userIds.yago },
+          cur = await tx.task.create({
+            data: { kind: "GOAL", title: g.title, description: g.description ?? null, dueDate: keyToDate(g.due), assigneeId, createdById: userIds.yago, ...evidence },
           });
           conta("metas criadas");
         } else if (cur.status === "DONE") {
           conta("metas já concluídas (não alteradas)");
         } else {
-          await tx.task.update({ where: { id: cur.id }, data: { dueDate: keyToDate(g.due), description: g.description ?? cur.description } });
+          // Tarefa vinda do Asana: o Asana é a fonte de título e prazo (a sincronização sobrescreveria)
+          const fromAsana = !!cur.asanaGid;
+          const rename = !fromAsana && norm(cur.title) !== norm(g.title) ? { title: g.title } : {};
+          if (rename.title) log(`  ~ meta renomeada: "${cur.title}" → "${g.title}"`);
+          await tx.task.update({
+            where: { id: cur.id },
+            data: { ...(fromAsana ? {} : { dueDate: keyToDate(g.due) }), ...rename, description: g.description ?? cur.description, ...evidence },
+          });
           conta("metas atualizadas");
+        }
+
+        // Tarefas da meta: cada uma vale 1/N do progresso; só conta concluída com evidência
+        if (g.subtasks?.length) {
+          const children = await tx.task.findMany({ where: { assigneeId, OR: [{ parentId: cur.id }, { parentId: null, kind: "TASK" }] } });
+          for (const sd of g.subtasks) {
+            const child = children.find((c) => c.parentId === cur!.id && norm(c.title) === norm(sd.title)) ?? children.find((c) => norm(c.title) === norm(sd.title));
+            if (!child) {
+              await tx.task.create({
+                data: { kind: "TASK", title: sd.title, dueDate: keyToDate(sd.due), assigneeId, createdById: userIds.yago, parentId: cur.id, requiresEvidence: !!g.requiresEvidence },
+              });
+              conta("tarefas de meta criadas");
+            } else {
+              await tx.task.update({
+                where: { id: child.id },
+                data: { parentId: cur.id, ...(child.asanaGid || child.status === "DONE" ? {} : { dueDate: keyToDate(sd.due) }), ...(g.requiresEvidence ? { requiresEvidence: true } : {}) },
+              });
+              conta("tarefas de meta atualizadas");
+            }
+          }
         }
       }
       log(`  ${p.name}: ${GOALS[p.key].length} meta(s)`);
