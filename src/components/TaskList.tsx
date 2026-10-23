@@ -36,7 +36,7 @@ export function TaskList({ tasks, today, showAssignee = true }: { tasks: TaskRow
                   {showAssignee && <span>{t.assignee.name}</span>}
                   {due && <span className={overdue ? "font-semibold text-red-700" : ""}>prazo {formatDay(due)}</span>}
                   {t.project && <span>{t.project.kind === "CLIENT" ? "cliente" : "projeto"}: {t.project.name}</span>}
-                  {t._count && t._count.children > 0 && <span>{t.childrenDone ?? 0}/{t._count.children} tarefas concluídas</span>}
+                  {t._count && t._count.children > 0 && <span>{t.childrenDone ?? 0}/{t._count.children} entregas válidas · {Math.round(((t.childrenDone ?? 0) / t._count.children) * 100)}%</span>}
                 </div>
                 {t.status === "BLOCKED" && t.blockedReason && <p className="mt-1 text-xs text-red-700">⚠ {t.blockedReason}</p>}
               </div>

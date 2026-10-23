@@ -1,5 +1,5 @@
 import { DeliveryControls } from "@/components/DeliveryControls";
-import { canStillContest } from "@/lib/domain/deliveries";
+import { canStillContest, countsAsDone } from "@/lib/domain/deliveries";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
@@ -35,7 +35,10 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   const editable = canEditTask(access.ctx, task);
   const today = todayKey();
   const options = editable ? await taskFormOptions(access) : null;
-  const done = task.children.filter((c) => c.status === "DONE").length;
+  // Progresso da meta: cada tarefa vale 1/N e só conta concluída com a evidência exigida (e sem contestação)
+  const done = task.children.filter(countsAsDone).length;
+  const doneWithoutValidity = task.children.filter((c) => c.status === "DONE" && !countsAsDone(c)).length;
+  const pct = task.children.length ? Math.round((done / task.children.length) * 100) : 0;
   const overdue = !!task.dueDate && dateToKey(task.dueDate) < today && task.status !== "DONE";
 
   return (
@@ -93,7 +96,12 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
       )}
 
       {task.kind === "GOAL" && (
-        <Card title={`Tarefas desta meta (${done}/${task.children.length} concluídas)`}>
+        <Card title={`Tarefas desta meta (${done}/${task.children.length} entregas válidas · ${pct}%)`}>
+          {doneWithoutValidity > 0 && (
+            <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              {doneWithoutValidity} tarefa(s) marcada(s) como concluída(s) ainda não conta(m) no progresso: falta evidência ou há contestação.
+            </p>
+          )}
           <TaskList tasks={task.children} today={today} />
         </Card>
       )}

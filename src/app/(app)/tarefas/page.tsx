@@ -8,7 +8,7 @@ import { requireAccess, visibleWhere } from "@/lib/authz";
 import { prisma } from "@/lib/db";
 import { keyToDate, todayKey } from "@/lib/domain/dates";
 import { STATUS_LABEL } from "@/lib/format";
-import { taskFormOptions } from "@/lib/services/tasks";
+import { taskFormOptions, VALID_DELIVERY_WHERE } from "@/lib/services/tasks";
 
 export const metadata = { title: "Metas e tarefas" };
 
@@ -40,7 +40,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   ]);
   const goalIds = tasks.filter((t) => t.kind === "GOAL").map((t) => t.id);
   const doneCounts = goalIds.length
-    ? await prisma.task.groupBy({ by: ["parentId"], where: { parentId: { in: goalIds }, status: "DONE" }, _count: true })
+    ? await prisma.task.groupBy({ by: ["parentId"], where: { parentId: { in: goalIds }, ...VALID_DELIVERY_WHERE }, _count: true })
     : [];
   const withProgress = tasks.map((t) => ({ ...t, childrenDone: doneCounts.find((d) => d.parentId === t.id)?._count ?? 0 }));
   const showAssignee = access.visible === null || access.visible.size > 1;
